@@ -49,7 +49,7 @@ unsigned char get_region_intensity(unsigned long cur_pixel_row,  unsigned long c
 //    unsigned int test = cumulate_brightness / (row_step * col_step * 3);
 //    assert(test >= 0 && test <= 255);
 
-    return cumulate_brightness / (n);
+    return cumulate_brightness / (row_step * col_step * 3);
 }
 
 
@@ -109,11 +109,11 @@ int main(int argc, char *argv[]) {
                         get_region_intensity(cur_pixel_row, cur_pixel_col,
                                              row_downscale_coef, col_downscale_coef,
                                              frame));
-//            buffer[current_char_index] = '\0';
+            buffer[current_char_index] = '\0';
             printw("%s\n", buffer);
         }
         refresh();
-        usleep(10000);
+        usleep(40000);
     }
 
     endwin();
