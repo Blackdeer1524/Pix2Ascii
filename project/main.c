@@ -4,7 +4,7 @@
 #include "utils.h"
 #include <stdlib.h>
 
-#define FRAME_WIDTH 960
+#define FRAME_WIDTH 1280
 #define FRAME_HEIGHT 720
 #define VIDEO_FRAMERATE 24
 #define TOTAL_READ_SIZE (FRAME_WIDTH * FRAME_HEIGHT * 3)
@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
     char command_buffer[256];
     // scale=%d:%d -framerate %d
     int n = sprintf(command_buffer, "ffmpeg -i %s -f image2pipe -hide_banner -loglevel error"
-                                    " -vcodec rawvideo -pix_fmt rgb24 -", argv[1]);
+                                    " -vf scale=1280:720 -vcodec rawvideo -pix_fmt rgb24 -", argv[1]);
     if (n < 0) {
         fprintf(stderr, "Error when entering command!\n");
         return -1;
@@ -84,18 +84,18 @@ int main(int argc, char *argv[]) {
 
     unsigned int n_available_rows, n_available_cols;
 
-    getmaxyx(stdscr, n_available_rows, n_available_cols);
-    n_available_cols -= 10;
-    unsigned int row_downscale_coef = FRAME_HEIGHT / n_available_rows;
-    unsigned int col_downscale_coef = FRAME_WIDTH / n_available_cols;
-    char *buffer = calloc(sizeof(char), n_available_cols);
-
     unsigned long n_read_items;
     unsigned long cur_pixel_row, cur_pixel_col;
     unsigned long current_char_index;
 
     while ((n_read_items = fread(frame, 1, TOTAL_READ_SIZE, pipein)) == TOTAL_READ_SIZE) {
         clear();
+        getmaxyx(stdscr, n_available_rows, n_available_cols);
+        n_available_cols -= 10;
+        unsigned int row_downscale_coef = FRAME_HEIGHT / n_available_rows;
+        unsigned int col_downscale_coef = FRAME_WIDTH / n_available_cols;
+        char *buffer = calloc(sizeof(char), n_available_cols);
+
         for (cur_pixel_row=0;
              cur_pixel_row < FRAME_HEIGHT - FRAME_HEIGHT % row_downscale_coef;
              cur_pixel_row += row_downscale_coef) {
@@ -113,11 +113,11 @@ int main(int argc, char *argv[]) {
             printw("%s\n", buffer);
         }
         refresh();
+        free(buffer);
         usleep(40000);
     }
 
     endwin();
-    free(buffer);
     fflush(pipein);
     pclose(pipein);
     return 0;
