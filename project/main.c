@@ -117,7 +117,8 @@ int main(int argc, char *argv[]) {
             offset += n_available_cols;
         }
         buffer[offset] = '\0';
-        clear();
+//        clear();
+        move(0, 0);
         printw("%s\n", buffer);
         refresh();
         usleep(40000);
