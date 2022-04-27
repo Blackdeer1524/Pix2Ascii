@@ -13,6 +13,8 @@
 #define TOTAL_READ_SIZE (FRAME_WIDTH * FRAME_HEIGHT * 3)
 #define FRAME_TIMING_SLEEP 1000000 / VIDEO_FRAMERATE
 
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
 // 
 typedef struct {
@@ -165,8 +167,8 @@ int main(int argc, char *argv[]) {
 
             n_available_rows = new_n_available_rows;
             n_available_cols = new_n_available_cols;
-            row_downscale_coef = FRAME_HEIGHT / n_available_rows;
-            col_downscale_coef = FRAME_WIDTH / n_available_cols;
+            row_downscale_coef = MAX(FRAME_HEIGHT / n_available_rows, 1);
+            col_downscale_coef = MAX(FRAME_WIDTH / n_available_cols, 1);
             free(buffer);
             buffer = calloc(sizeof(char), n_available_cols * n_available_rows);
         } else if (!n_read_items) {  // <== this if statement is needed for camera to work properly.
