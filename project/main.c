@@ -14,17 +14,8 @@
 // $@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\|()1{}[]?-_+~<>i!lI;:,"^`'.
 char char_set[] = "N@#W$9876543210?!abc;:+=-,._ ";
 
-//static char char_sets{
-//
-//};
 
 static unsigned char char_set_len = sizeof(char_set) - 1;
-
-//unsigned char get_color_intensity(const unsigned char r,
-//                                  const unsigned char g,
-//                                  const unsigned char b) {
-//    return (r + g + b) / 3;  // ranges from 0 to 255
-//}
 
 static unsigned char normalization_term = sizeof(char_set) - 2;
 char get_char_given_intensity(unsigned char intensity) {
@@ -49,8 +40,7 @@ unsigned char get_region_intensity(unsigned long cur_pixel_row,  unsigned long c
 
 #include <time.h>
 
-unsigned long micros()
-{
+unsigned long micros() {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
     unsigned long us = 1000000 * (uint64_t) ts.tv_sec + (uint64_t) ts.tv_nsec / 1000;
@@ -64,11 +54,16 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Bad number of arguments!\n");
         return -1;
     }
+
     char command_buffer[256];
     // scale=%d:%d -framerate %d
-    int n = sprintf(command_buffer, "ffmpeg -i %s -f image2pipe -hide_banner -loglevel error"
-                                    " -vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -",
-                                    argv[1], VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
+
+//    "ffmpeg -i %s -f image2pipe -hide_banner -loglevel error"
+//    -                                    " -vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -"
+    int n = sprintf(command_buffer, "ffmpeg -hide_banner -loglevel error "
+                                    "-f v4l2 -i /dev/video0 -f image2pipe "
+                                    "-vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -",
+                                    VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
     if (n < 0) {
         fprintf(stderr, "Error when entering command!\n");
         return -1;
@@ -78,7 +73,6 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Error when obtaining data stream!\n");
         return -1;
     }
-
     puts("\n");
     initscr();
     curs_set(0);
@@ -92,15 +86,16 @@ int main(int argc, char *argv[]) {
     unsigned int row_downscale_coef = 0;
     unsigned int col_downscale_coef = 0;
 
-
     unsigned long n_read_items;
     unsigned int offset;
     char *buffer = NULL;
     unsigned long t;
 
-    while ((n_read_items = fread(frame, 1, TOTAL_READ_SIZE, pipein)) == TOTAL_READ_SIZE) {
-        t = micros();
+    while (1) {
+        if (!fread(frame, 1, TOTAL_READ_SIZE, pipein))
+            continue;
 
+        t = micros();
         getmaxyx(stdscr, new_n_available_rows, new_n_available_cols);
         new_n_available_cols -= 10;
         if (n_available_rows != new_n_available_rows ||
