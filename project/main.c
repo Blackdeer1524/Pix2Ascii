@@ -8,8 +8,10 @@
 #define FRAME_HEIGHT 720
 #define VIDEO_FRAMERATE 24
 #define TOTAL_READ_SIZE (FRAME_WIDTH * FRAME_HEIGHT * 3)
+#define FRAME_TIMING_SLEEP 1000000 / VIDEO_FRAMERATE
 
 
+// $@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\|()1{}[]?-_+~<>i!lI;:,"^`'.
 char char_set[] = "N@#W$9876543210?!abc;:+=-,._ ";
 
 //static char char_sets{
@@ -45,6 +47,16 @@ unsigned char get_region_intensity(unsigned long cur_pixel_row,  unsigned long c
     return cumulate_brightness / (row_step * col_step * 3);
 }
 
+#include <time.h>
+
+unsigned long micros()
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+    unsigned long us = 1000000 * (uint64_t) ts.tv_sec + (uint64_t) ts.tv_nsec / 1000;
+    return us;
+}
+
 
 #include <unistd.h>
 int main(int argc, char *argv[]) {
@@ -55,7 +67,8 @@ int main(int argc, char *argv[]) {
     char command_buffer[256];
     // scale=%d:%d -framerate %d
     int n = sprintf(command_buffer, "ffmpeg -i %s -f image2pipe -hide_banner -loglevel error"
-                                    " -vf scale=1280:720 -vcodec rawvideo -pix_fmt rgb24 -", argv[1]);
+                                    " -vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -",
+                                    argv[1], VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
     if (n < 0) {
         fprintf(stderr, "Error when entering command!\n");
         return -1;
@@ -73,18 +86,21 @@ int main(int argc, char *argv[]) {
     unsigned int n_available_rows=0, n_available_cols=0;
     unsigned int new_n_available_rows=1, new_n_available_cols=1;
 
-    unsigned long n_read_items;
     unsigned long cur_pixel_row, cur_pixel_col;
-    unsigned long cur_char_row_index;
-    unsigned long cur_char_col_index;
+    unsigned long cur_char_row_index, cur_char_col_index;
 
     unsigned int row_downscale_coef = 0;
     unsigned int col_downscale_coef = 0;
 
-    char *buffer = NULL;
 
+    unsigned long n_read_items;
     unsigned int offset;
+    char *buffer = NULL;
+    unsigned long t;
+
     while ((n_read_items = fread(frame, 1, TOTAL_READ_SIZE, pipein)) == TOTAL_READ_SIZE) {
+        t = micros();
+
         getmaxyx(stdscr, new_n_available_rows, new_n_available_cols);
         new_n_available_cols -= 10;
         if (n_available_rows != new_n_available_rows ||
@@ -117,11 +133,11 @@ int main(int argc, char *argv[]) {
             offset += n_available_cols;
         }
         buffer[offset] = '\0';
-//        clear();
         move(0, 0);
         printw("%s\n", buffer);
         refresh();
-        usleep(40000);
+        t = micros() - t;
+        usleep(FRAME_TIMING_SLEEP - t);
     }
     free(buffer);
     getchar();
