@@ -10,24 +10,22 @@
 #define TOTAL_READ_SIZE (FRAME_WIDTH * FRAME_HEIGHT * 3)
 
 
-
-
-#include <assert.h>
-#include <string.h>
-
 char char_set[] = "N@#W$9876543210?!abc;:+=-,._ ";
+
+//static char char_sets{
+//
+//};
+
 static unsigned char char_set_len = sizeof(char_set) - 1;
 
-unsigned char get_color_intensity(const unsigned char r,
-                                  const unsigned char g,
-                                  const unsigned char b) {
-    return (r + g + b) / 3;  // ranges from 0 to 255
-}
+//unsigned char get_color_intensity(const unsigned char r,
+//                                  const unsigned char g,
+//                                  const unsigned char b) {
+//    return (r + g + b) / 3;  // ranges from 0 to 255
+//}
 
 static unsigned char normalization_term = sizeof(char_set) - 2;
 char get_char_given_intensity(unsigned char intensity) {
-//    int test = intensity * normalization_term / 255;
-//    assert((test >= 0) && (test <= char_set_len));
     return char_set[normalization_term - intensity * normalization_term / 255];
 }
 
@@ -38,17 +36,12 @@ unsigned char get_region_intensity(unsigned long cur_pixel_row,  unsigned long c
                                    unsigned long row_step, unsigned long col_step,
                                    const unsigned char screen_data[FRAME_HEIGHT][FRAME_WIDTH][3]) {
     unsigned int cumulate_brightness = 0;
-    int n = 0;
     for (unsigned long i = cur_pixel_row; i < cur_pixel_row + row_step; ++i)
         for (unsigned long j = cur_pixel_col; j < cur_pixel_col + col_step; ++j) {
             cumulate_brightness += screen_data[cur_pixel_row][cur_pixel_col][0];
             cumulate_brightness += screen_data[cur_pixel_row][cur_pixel_col][1];
             cumulate_brightness += screen_data[cur_pixel_row][cur_pixel_col][2];
-            n += 3;
         }
-//    unsigned int test = cumulate_brightness / (row_step * col_step * 3);
-//    assert(test >= 0 && test <= 255);
-
     return cumulate_brightness / (row_step * col_step * 3);
 }
 
@@ -73,50 +66,64 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-//    FILE *pipein = popen("ffmpeg -i BadApple.mp4 -f image2pipe -hide_banner -loglevel error"
-//                         " -vcodec rawvideo -pix_fmt rgb24 -", "r");
-//    setbuffer(pipein, NULL, TOTAL_READ_SIZE * 100);
-
-
     puts("\n");
     initscr();
-//    curs_set(0);
+    curs_set(0);
 
-    unsigned int n_available_rows, n_available_cols;
+    unsigned int n_available_rows=0, n_available_cols=0;
+    unsigned int new_n_available_rows=1, new_n_available_cols=1;
 
     unsigned long n_read_items;
     unsigned long cur_pixel_row, cur_pixel_col;
-    unsigned long current_char_index;
+    unsigned long cur_char_row_index;
+    unsigned long cur_char_col_index;
 
+    unsigned int row_downscale_coef = 0;
+    unsigned int col_downscale_coef = 0;
+
+    char *buffer = NULL;
+
+    unsigned int offset;
     while ((n_read_items = fread(frame, 1, TOTAL_READ_SIZE, pipein)) == TOTAL_READ_SIZE) {
-        clear();
-        getmaxyx(stdscr, n_available_rows, n_available_cols);
-        n_available_cols -= 10;
-        unsigned int row_downscale_coef = FRAME_HEIGHT / n_available_rows;
-        unsigned int col_downscale_coef = FRAME_WIDTH / n_available_cols;
-        char *buffer = calloc(sizeof(char), n_available_cols);
+        getmaxyx(stdscr, new_n_available_rows, new_n_available_cols);
+        new_n_available_cols -= 10;
+        if (n_available_rows != new_n_available_rows ||
+            n_available_cols != new_n_available_cols) {
 
-        for (cur_pixel_row=0;
+            n_available_rows = new_n_available_rows;
+            n_available_cols = new_n_available_cols;
+            row_downscale_coef = FRAME_HEIGHT / n_available_rows;
+            col_downscale_coef = FRAME_WIDTH / n_available_cols;
+            free(buffer);
+            buffer = calloc(sizeof(char), n_available_cols * n_available_rows);
+        }
+        offset = 0;
+        for (cur_char_row_index=0, cur_pixel_row=0;
+             cur_char_row_index < n_available_rows - 1 &&
              cur_pixel_row < FRAME_HEIGHT - FRAME_HEIGHT % row_downscale_coef;
+             ++cur_char_row_index,
              cur_pixel_row += row_downscale_coef) {
 
-            for (current_char_index=0, cur_pixel_col=0;
-                 current_char_index < n_available_cols - 1 &&
+            for (cur_char_col_index=0, cur_pixel_col=0;
+                 cur_char_col_index < n_available_cols - 1 &&
                  cur_pixel_col < FRAME_WIDTH - FRAME_WIDTH % col_downscale_coef;
-                 ++current_char_index,
+                 ++cur_char_col_index,
                  cur_pixel_col += col_downscale_coef)
-                buffer[current_char_index] = get_char_given_intensity(
+                buffer[offset + cur_char_col_index] = get_char_given_intensity(
                         get_region_intensity(cur_pixel_row, cur_pixel_col,
                                              row_downscale_coef, col_downscale_coef,
                                              frame));
-            buffer[current_char_index] = '\0';
-            printw("%s\n", buffer);
+            buffer[offset + cur_char_col_index] = '\n';
+            offset += n_available_cols;
         }
+        buffer[offset] = '\0';
+        clear();
+        printw("%s\n", buffer);
         refresh();
-        free(buffer);
         usleep(40000);
     }
-
+    free(buffer);
+    getchar();
     endwin();
     fflush(pipein);
     pclose(pipein);
