@@ -1,5 +1,8 @@
 #include <stdio.h>
 #include <ncurses.h>
+#include <string.h>
+#include <unistd.h>
+#include <time.h>
 
 #include "utils.h"
 #include <stdlib.h>
@@ -38,7 +41,6 @@ unsigned char get_region_intensity(unsigned long cur_pixel_row,  unsigned long c
     return cumulate_brightness / (row_step * col_step * 3);
 }
 
-#include <time.h>
 
 unsigned long micros() {
     struct timespec ts;
@@ -47,27 +49,59 @@ unsigned long micros() {
     return us;
 }
 
+typedef enum {T_file, T_camera} t_source;
 
-#include <unistd.h>
+
 int main(int argc, char *argv[]) {
-    if (argc != 2) {
+    if (argc < 2) {
         fprintf(stderr, "Bad number of arguments!\n");
         return -1;
     }
 
-    char command_buffer[256];
-    // scale=%d:%d -framerate %d
+//    -c: camera
+//    -f "filepath"
+    t_source reading_type = T_file;
+    char *filepath = NULL;
+    for (int i=1; i<argc;) {
+        if (argv[i][0] != '-') {
+            fprintf(stderr, "Invalid argument! Value is given without a corresponding flag!\n");
+            return -1;
+        }
 
-//    "ffmpeg -i %s -f image2pipe -hide_banner -loglevel error"
-//    -                                    " -vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -"
-    int n = sprintf(command_buffer, "ffmpeg -hide_banner -loglevel error "
-                                    "-f v4l2 -i /dev/video0 -f image2pipe "
+        if (!strcmp(&argv[i][1], "c")) {
+            reading_type = T_camera;
+            ++i;
+        } else if (!strcmp(&argv[i][1], "f")) {
+            if (i == argc - 1 || argv[i+1][0] == '-') {
+                fprintf(stderr, "Invalid argument! Filepath is not given!\n");
+                return -1;
+            } else {
+                reading_type = T_file;
+                filepath = argv[i+1];
+                i += 2;
+            }
+        } else {
+            fprintf(stderr, "Unknown flag!\n");
+            return -1;
+        }
+    }
+
+    char command_buffer[512];
+    int n = 0;
+    if (reading_type == T_camera)
+         n = sprintf(command_buffer, "ffmpeg -hide_banner -loglevel error "
+                                      "-f v4l2 -i /dev/video0 -f image2pipe "
+                                      "-vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -",
+                                      VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
+    else if (reading_type == T_file)
+        n = sprintf(command_buffer, "ffmpeg -i %s -f image2pipe -hide_banner -loglevel error "
                                     "-vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -",
-                                    VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
+                                    filepath, VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
     if (n < 0) {
-        fprintf(stderr, "Error when entering command!\n");
+        fprintf(stderr, "Error writing ffmpeg query!\n");
         return -1;
     }
+
     FILE *pipein = popen(command_buffer, "r");
     if (!pipein) {
         fprintf(stderr, "Error when obtaining data stream!\n");
