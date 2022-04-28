@@ -172,7 +172,7 @@ int main(int argc, char *argv[]) {
     char *buffer = NULL;
     unsigned long t;
 
-//    FILE *test = fopen("./test_data.txt", "w");
+    FILE *test = fopen("./test_data.txt", "w");
     while (1) {
         // when terminal is being resized, you can NOT read anything from camera
         // (don't know why). This results in n_read_items = 0.
@@ -212,25 +212,20 @@ int main(int argc, char *argv[]) {
                         get_region_intensity(cur_pixel_row, cur_pixel_col,
                                              row_downscale_coef, col_downscale_coef,
                                              frame), char_set, max_char_set_index);
-            buffer[offset + cur_char_col_index] = '\n';
-            for (unsigned int j = offset + cur_char_col_index+1; j < offset + n_available_cols; ++j)
+            for (unsigned int j = offset + cur_char_col_index; j < offset + n_available_cols - 1; ++j)
                 buffer[j] = ' ';
             offset += n_available_cols;
+            buffer[offset-1] = '\n';
             ++line_term_n;
         }
-        buffer[offset] = '\0';
-//        move(0, 0);
-        clear();
-//        printw("%dx%d\n", n_available_rows, n_available_cols);
-//        printw("-> %d|%d\n\n", row_downscale_coef, col_downscale_coef);
-//        printw("%d\n", n_read_items);
+        buffer[offset-1] = '\0';
+        move(0, 0);
         printw("%s\n", buffer);
-//        fprintf(test, "<%ldx%ld %d><start>\n%s\n<end>\n\n", cur_char_row_index, cur_char_col_index, line_term_n, buffer);
         refresh();
         t = micros() - t;
         usleep(FRAME_TIMING_SLEEP - t);
     }
-//    fclose(test);
+    fclose(test);
     free(buffer);
     getchar();
     endwin();
