@@ -189,13 +189,10 @@ int main(int argc, char *argv[]) {
             n_available_cols = new_n_available_cols;
             row_downscale_coef = MAX((FRAME_HEIGHT + n_available_rows) / n_available_rows, 1);
             col_downscale_coef = MAX((FRAME_WIDTH  + n_available_cols) / n_available_cols, 1);  // MAX(, 1);
-            free(buffer);
-            buffer = calloc(sizeof(char), n_available_cols * n_available_rows);
     //        } else if (!n_read_items) {  // <== this if statement is needed for camera to work properly.
     //            break;                   // stops when you couldn't read anything even if you didn't resize terminal.
             }
 
-        int line_term_n = 0;
         offset = 0;
         for (cur_char_row_index=0, cur_pixel_row=0;
              cur_char_row_index < n_available_rows - 1 &&
@@ -208,22 +205,16 @@ int main(int argc, char *argv[]) {
                  cur_pixel_col < FRAME_WIDTH - FRAME_WIDTH % col_downscale_coef;
                  ++cur_char_col_index,
                          cur_pixel_col += col_downscale_coef)
-                buffer[offset + cur_char_col_index] = get_char_given_intensity(
-                        get_region_intensity(cur_pixel_row, cur_pixel_col,
-                                             row_downscale_coef, col_downscale_coef,
-                                             frame), char_set, max_char_set_index);
-            for (unsigned int j = offset + cur_char_col_index; j < offset + n_available_cols - 1; ++j)
-                buffer[j] = ' ';
-            offset += n_available_cols;
-            buffer[offset-1] = '\n';
-            ++line_term_n;
+                addch(get_char_given_intensity(get_region_intensity(cur_pixel_row, cur_pixel_col,
+                                                                   row_downscale_coef, col_downscale_coef,
+                                                                   frame),
+                                                char_set, max_char_set_index));
+            addch('\n');
         }
-        buffer[offset-1] = '\0';
         if (changed)
             clear();
         else
             move(0, 0);
-        printw("%s\n", buffer);
         refresh();
         t = micros() - t;
         if (FRAME_TIMING_SLEEP > t)
