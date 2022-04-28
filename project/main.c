@@ -26,11 +26,12 @@ typedef struct {
     unsigned int last_index;
 } char_set_data;
 
-typedef enum {CHARSET_SHORT, CHARSET_MEDIUM, CHARSET_LONG, CHARSET_N} t_char_set;
+typedef enum {CHARSET_SHARP, CHARSET_OPTIMAL, CHARSET_STANDART, CHARSET_N} t_char_set;
 static char_set_data char_sets[CHARSET_N] = {
         {"@%#*+=-:. ", 9},
+        {"NBUa1|^` ", 8},
         {"N@#W$9876543210?!abc;:+=-,._ ", 28},
-        {"$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. ", 69}};
+        };
 
 #include <assert.h>
 char get_char_given_intensity(unsigned char intensity, const char *char_set, unsigned int max_index) {
@@ -103,10 +104,6 @@ void draw_frame(const unsigned char screen[FRAME_HEIGHT][FRAME_WIDTH][3],
     refresh();
 }
 
-//void skip_frames(unsigned long loosed_time)
-
-
-
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
@@ -119,7 +116,7 @@ int main(int argc, char *argv[]) {
 //    -color: char set to choose
     t_source reading_type = SOURCE_FILE;
     char *filepath = NULL;
-    t_char_set picked_char_set_type = CHARSET_MEDIUM;
+    t_char_set picked_char_set_type = CHARSET_OPTIMAL;
 
     for (int i=1; i<argc;) {
         if (argv[i][0] != '-') {
@@ -145,12 +142,12 @@ int main(int argc, char *argv[]) {
                 return -1;
             }
 
-            if (!strcmp(argv[i + 1], "short")){
-                picked_char_set_type = CHARSET_SHORT;
-            } else if (!strcmp(argv[i + 1], "medium")){
-                picked_char_set_type = CHARSET_MEDIUM;
-            } else if (!strcmp(argv[i + 1], "long")){
-                picked_char_set_type = CHARSET_LONG;
+            if (!strcmp(argv[i + 1], "sharp")){
+                picked_char_set_type = CHARSET_SHARP;
+            } else if (!strcmp(argv[i + 1], "optimal")){
+                picked_char_set_type = CHARSET_OPTIMAL;
+            } else if (!strcmp(argv[i + 1], "standart")){
+                picked_char_set_type = CHARSET_STANDART;
             } else {
                 fprintf(stderr, "Invalid argument! Unsupported scheme!\n");
                 return -1;
@@ -193,6 +190,7 @@ int main(int argc, char *argv[]) {
     unsigned int row_downscale_coef = 1, col_downscale_coef = 1;
     unsigned long n_read_items;
     unsigned long start, end;
+    unsigned char n_frames_to_skip = 0;
 
     while (1) {
         // when terminal is being resized, you can NOT read anything from camera
@@ -207,11 +205,11 @@ int main(int argc, char *argv[]) {
                           char_set, max_char_set_index);
         end = micros() - start;
         // compensates time loss (?)
-        while (FRAME_TIMING_SLEEP < end) {
-            start = micros();
-            fseek(pipein, TOTAL_READ_SIZE, SEEK_CUR);
-            end = micros() - start;
+        if (FRAME_TIMING_SLEEP < end) {
+            fseek(pipein, TOTAL_READ_SIZE * ++n_frames_to_skip, SEEK_CUR);
+            continue;
         }
+        n_frames_to_skip = 0;
         usleep(FRAME_TIMING_SLEEP - end);
     }
     getchar();
