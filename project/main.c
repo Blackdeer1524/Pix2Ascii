@@ -66,15 +66,46 @@ unsigned long micros() {
 
 typedef enum {SOURCE_FILE, SOURCE_CAMERA} t_source;
 
-#include <assert.h>
-void prepare_terminal_size(unsigned int *char_height, unsigned int *char_width) {
-    unsigned long new_height = *char_width * ASPECT_RATIO_HEIGHT / ASPECT_RATIO_WIDTH;
-    if (new_height > *char_height) {
-        *char_width = *char_height * ASPECT_RATIO_WIDTH / ASPECT_RATIO_HEIGHT;
-        return;
+void draw_frame(const unsigned char screen[FRAME_HEIGHT][FRAME_WIDTH][3],
+                unsigned int *n_available_rows,
+                unsigned int *n_available_cols,
+                unsigned int *row_downscale_coef,
+                unsigned int *col_downscale_coef,
+                const char char_set[],
+                unsigned int max_char_set_index) {
+
+    static unsigned int new_n_available_rows, new_n_available_cols;
+    static unsigned int cur_pixel_row, cur_pixel_col;
+
+    getmaxyx(stdscr, new_n_available_rows, new_n_available_cols);
+    if (*n_available_rows != new_n_available_rows ||
+        *n_available_cols != new_n_available_cols) {
+        *n_available_rows = new_n_available_rows;
+        *n_available_cols = new_n_available_cols;
+        *row_downscale_coef = MAX((FRAME_HEIGHT + *n_available_rows) / *n_available_rows, 1);
+        *col_downscale_coef = MAX((FRAME_WIDTH  + *n_available_cols) / *n_available_cols, 1);  // MAX(, 1);
     }
-    *char_height = new_height;
+
+    for (cur_pixel_row=0;
+         cur_pixel_row < FRAME_HEIGHT - FRAME_HEIGHT % *row_downscale_coef;
+         cur_pixel_row += *row_downscale_coef) {
+
+        for (cur_pixel_col=0;
+             cur_pixel_col < FRAME_WIDTH - FRAME_WIDTH % *col_downscale_coef;
+             cur_pixel_col += *col_downscale_coef)
+            addch(get_char_given_intensity(get_region_intensity(cur_pixel_row, cur_pixel_col,
+                                                                *row_downscale_coef, *col_downscale_coef,
+                                                                screen),
+                                           char_set, max_char_set_index));
+        addch('\n');
+    }
+    move(0, 0);
+    refresh();
 }
+
+//void skip_frames(unsigned long loosed_time)
+
+
 
 
 int main(int argc, char *argv[]) {
@@ -159,69 +190,30 @@ int main(int argc, char *argv[]) {
     curs_set(0);
 
     unsigned int n_available_rows=0, n_available_cols=0;
-    unsigned int new_n_available_rows=1, new_n_available_cols=1;
-
-    unsigned long cur_pixel_row, cur_pixel_col;
-    unsigned long cur_char_row_index, cur_char_col_index;
-
-    unsigned int row_downscale_coef = 1;
-    unsigned int col_downscale_coef = 1;
-
+    unsigned int row_downscale_coef = 1, col_downscale_coef = 1;
     unsigned long n_read_items;
-    unsigned int offset;
-    char *buffer = NULL;
-    unsigned long t;
+    unsigned long start, end;
 
-    int changed;
-    FILE *test = fopen("./test_data.txt", "w");
     while (1) {
-        changed = 0;
         // when terminal is being resized, you can NOT read anything from camera
         // (don't know why). This results in n_read_items = 0.
         n_read_items = fread(frame, 1, TOTAL_READ_SIZE, pipein);
+        if (!n_read_items && feof(pipein))
+            break;
 
-        t = micros();
-        getmaxyx(stdscr, new_n_available_rows, new_n_available_cols);
-        if (n_available_rows != new_n_available_rows ||
-            n_available_cols != new_n_available_cols) {
-            changed = 1;
-            n_available_rows = new_n_available_rows;
-            n_available_cols = new_n_available_cols;
-            row_downscale_coef = MAX((FRAME_HEIGHT + n_available_rows) / n_available_rows, 1);
-            col_downscale_coef = MAX((FRAME_WIDTH  + n_available_cols) / n_available_cols, 1);  // MAX(, 1);
-    //        } else if (!n_read_items) {  // <== this if statement is needed for camera to work properly.
-    //            break;                   // stops when you couldn't read anything even if you didn't resize terminal.
-            }
-
-        offset = 0;
-        for (cur_char_row_index=0, cur_pixel_row=0;
-             cur_char_row_index < n_available_rows - 1 &&
-             cur_pixel_row < FRAME_HEIGHT - FRAME_HEIGHT % row_downscale_coef;
-             ++cur_char_row_index,
-             cur_pixel_row += row_downscale_coef) {
-
-            for (cur_char_col_index=0, cur_pixel_col=0;
-                 cur_char_col_index < n_available_cols - 1 &&
-                 cur_pixel_col < FRAME_WIDTH - FRAME_WIDTH % col_downscale_coef;
-                 ++cur_char_col_index,
-                         cur_pixel_col += col_downscale_coef)
-                addch(get_char_given_intensity(get_region_intensity(cur_pixel_row, cur_pixel_col,
-                                                                   row_downscale_coef, col_downscale_coef,
-                                                                   frame),
-                                                char_set, max_char_set_index));
-            addch('\n');
+        start = micros();
+        draw_frame(frame, &n_available_rows, &n_available_cols,
+                          &row_downscale_coef, &col_downscale_coef,
+                          char_set, max_char_set_index);
+        end = micros() - start;
+        // compensates time loss (?)
+        while (FRAME_TIMING_SLEEP < end) {
+            start = micros();
+            fseek(pipein, TOTAL_READ_SIZE, SEEK_CUR);
+            end = micros() - start;
         }
-        if (changed)
-            clear();
-        else
-            move(0, 0);
-        refresh();
-        t = micros() - t;
-        if (FRAME_TIMING_SLEEP > t)
-            usleep(FRAME_TIMING_SLEEP - t);
+        usleep(FRAME_TIMING_SLEEP - end);
     }
-    fclose(test);
-    free(buffer);
     getchar();
     endwin();
     fflush(pipein);
