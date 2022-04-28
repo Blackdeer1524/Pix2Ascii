@@ -189,7 +189,7 @@ int main(int argc, char *argv[]) {
     unsigned int n_available_rows=0, n_available_cols=0;
     unsigned int row_downscale_coef = 1, col_downscale_coef = 1;
     unsigned long n_read_items;
-    unsigned long start, end;
+    unsigned long long start, frame_proc_time = 1, min_frame_proc_time=-1;  // <- maximum unsigned value
     unsigned char n_frames_to_skip = 0;
 
     while (1) {
@@ -203,14 +203,17 @@ int main(int argc, char *argv[]) {
         draw_frame(frame, &n_available_rows, &n_available_cols,
                           &row_downscale_coef, &col_downscale_coef,
                           char_set, max_char_set_index);
-        end = micros() - start;
+
+//        min_frame_proc_time = MIN(min_frame_proc_time, frame_proc_time);
+        frame_proc_time = micros() - start;
         // compensates time loss (?)
-        if (FRAME_TIMING_SLEEP < end) {
-            fseek(pipein, TOTAL_READ_SIZE * ++n_frames_to_skip, SEEK_CUR);
+        if (FRAME_TIMING_SLEEP < frame_proc_time) {
+            n_frames_to_skip = (frame_proc_time + FRAME_TIMING_SLEEP) / FRAME_TIMING_SLEEP;  // ceil
+            fseek(pipein, TOTAL_READ_SIZE * n_frames_to_skip, SEEK_CUR);
+            usleep(FRAME_TIMING_SLEEP - frame_proc_time);
             continue;
         }
-        n_frames_to_skip = 0;
-        usleep(FRAME_TIMING_SLEEP - end);
+        usleep(FRAME_TIMING_SLEEP - frame_proc_time);
     }
     getchar();
     endwin();
