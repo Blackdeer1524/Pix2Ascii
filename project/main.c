@@ -104,7 +104,7 @@ void draw_frame(const unsigned char screen[FRAME_HEIGHT][FRAME_WIDTH][3],
     refresh();
 }
 
-
+#include <math.h>
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         fprintf(stderr, "Bad number of arguments!\n");
@@ -189,8 +189,11 @@ int main(int argc, char *argv[]) {
     unsigned int n_available_rows=0, n_available_cols=0;
     unsigned int row_downscale_coef = 1, col_downscale_coef = 1;
     unsigned long n_read_items;
+    unsigned int n_loosed_frames;
+    double total_loosed_frames;
     unsigned long long start, frame_proc_time = 1, min_frame_proc_time=-1;  // <- maximum unsigned value
-    unsigned char n_frames_to_skip = 0;
+    unsigned int n_frames_to_skip = 0;
+    unsigned int sleep_time;
 
     while (1) {
         // when terminal is being resized, you can NOT read anything from camera
@@ -208,9 +211,12 @@ int main(int argc, char *argv[]) {
         frame_proc_time = micros() - start;
         // compensates time loss (?)
         if (FRAME_TIMING_SLEEP < frame_proc_time) {
-            n_frames_to_skip = (frame_proc_time + FRAME_TIMING_SLEEP) / FRAME_TIMING_SLEEP;  // ceil
+            total_loosed_frames = (double) (frame_proc_time - FRAME_TIMING_SLEEP) / FRAME_TIMING_SLEEP;
+            n_frames_to_skip = frame_proc_time / FRAME_TIMING_SLEEP;
+            n_loosed_frames =  (frame_proc_time - FRAME_TIMING_SLEEP) / FRAME_TIMING_SLEEP;
+//            sleep_time = (unsigned int) (FRAME_TIMING_SLEEP * (total_loosed_frames - n_loosed_frames));
             fseek(pipein, TOTAL_READ_SIZE * n_frames_to_skip, SEEK_CUR);
-            usleep(FRAME_TIMING_SLEEP - frame_proc_time);
+            usleep((unsigned int) (FRAME_TIMING_SLEEP * (total_loosed_frames - n_loosed_frames)));
             continue;
         }
         usleep(FRAME_TIMING_SLEEP - frame_proc_time);
