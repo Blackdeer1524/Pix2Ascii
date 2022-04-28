@@ -184,8 +184,6 @@ int main(int argc, char *argv[]) {
         getmaxyx(stdscr, new_n_available_rows, new_n_available_cols);
         if (n_available_rows != new_n_available_rows ||
             n_available_cols != new_n_available_cols) {
-            if (!n_read_items)
-                continue;
             changed = 1;
             n_available_rows = new_n_available_rows;
             n_available_cols = new_n_available_cols;
@@ -228,7 +226,8 @@ int main(int argc, char *argv[]) {
         printw("%s\n", buffer);
         refresh();
         t = micros() - t;
-        usleep(FRAME_TIMING_SLEEP - t);
+        if (FRAME_TIMING_SLEEP > t)
+            usleep(FRAME_TIMING_SLEEP - t);
     }
     fclose(test);
     free(buffer);
