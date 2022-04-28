@@ -8,7 +8,11 @@
 #include <stdlib.h>
 
 #define FRAME_WIDTH 1280
-#define FRAME_HEIGHT 720
+#define FRAME_HEIGHT 720       // 1280    16
+#define ASPECT_RATIO_WIDTH 16  // ---- =  --
+#define ASPECT_RATIO_HEIGHT 9  //  720     9
+
+
 #define VIDEO_FRAMERATE 24
 #define TOTAL_READ_SIZE (FRAME_WIDTH * FRAME_HEIGHT * 3)
 #define FRAME_TIMING_SLEEP 1000000 / VIDEO_FRAMERATE
@@ -16,7 +20,7 @@
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
-// 
+//
 typedef struct {
     char *char_set;
     unsigned int last_index;
@@ -28,7 +32,11 @@ static char_set_data char_sets[CHARSET_N] = {
         {"N@#W$9876543210?!abc;:+=-,._ ", 28},
         {"$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. ", 69}};
 
+#include <assert.h>
 char get_char_given_intensity(unsigned char intensity, const char *char_set, unsigned int max_index) {
+    unsigned int test = max_index - intensity * max_index / 255;
+    assert(0 <= test && test <= max_index);
+    assert(char_set[test] != '\0');
     return char_set[max_index - intensity * max_index / 255];
 }
 
@@ -58,6 +66,16 @@ unsigned long micros() {
 
 typedef enum {SOURCE_FILE, SOURCE_CAMERA} t_source;
 
+#include <assert.h>
+void prepare_terminal_size(unsigned int *char_height, unsigned int *char_width) {
+    unsigned long new_height = *char_width * ASPECT_RATIO_HEIGHT / ASPECT_RATIO_WIDTH;
+    if (new_height > *char_height) {
+        *char_width = *char_height * ASPECT_RATIO_WIDTH / ASPECT_RATIO_HEIGHT;
+        return;
+    }
+    *char_height = new_height;
+}
+
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
@@ -71,7 +89,7 @@ int main(int argc, char *argv[]) {
     t_source reading_type = SOURCE_FILE;
     char *filepath = NULL;
     t_char_set picked_char_set_type = CHARSET_MEDIUM;
-    
+
     for (int i=1; i<argc;) {
         if (argv[i][0] != '-') {
             fprintf(stderr, "Invalid argument! Value is given without a corresponding flag!\n");
@@ -116,22 +134,22 @@ int main(int argc, char *argv[]) {
     char command_buffer[512];
     int n = 0;
     if (reading_type == SOURCE_CAMERA)
-         n = sprintf(command_buffer, "ffmpeg -hide_banner -loglevel error "
-                                      "-f v4l2 -i /dev/video0 -f image2pipe "
-                                      "-vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -",
-                                      VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
+        n = sprintf(command_buffer, "ffmpeg -hide_banner -loglevel error "
+                                    "-f v4l2 -i /dev/video0 -f image2pipe "
+                                    "-vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -",
+                    VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
     else if (reading_type == SOURCE_FILE)
         n = sprintf(command_buffer, "ffmpeg -i %s -f image2pipe -hide_banner -loglevel error "
                                     "-vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -",
-                                    filepath, VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
+                    filepath, VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
     if (n < 0) {
         fprintf(stderr, "Error writing ffmpeg query!\n");
         return -1;
     }
-    
+
     char *char_set = char_sets[picked_char_set_type].char_set;
     unsigned int max_char_set_index = char_sets[picked_char_set_type].last_index;
-    
+
     FILE *pipein = popen(command_buffer, "r");
     if (!pipein) {
         fprintf(stderr, "Error when obtaining data stream!\n");
@@ -146,14 +164,15 @@ int main(int argc, char *argv[]) {
     unsigned long cur_pixel_row, cur_pixel_col;
     unsigned long cur_char_row_index, cur_char_col_index;
 
-    unsigned int row_downscale_coef = 0;
-    unsigned int col_downscale_coef = 0;
+    unsigned int row_downscale_coef = 1;
+    unsigned int col_downscale_coef = 1;
 
     unsigned long n_read_items;
     unsigned int offset;
     char *buffer = NULL;
     unsigned long t;
 
+//    FILE *test = fopen("./test_data.txt", "w");
     while (1) {
         // when terminal is being resized, you can NOT read anything from camera
         // (don't know why). This results in n_read_items = 0.
@@ -161,20 +180,22 @@ int main(int argc, char *argv[]) {
 
         t = micros();
         getmaxyx(stdscr, new_n_available_rows, new_n_available_cols);
-        new_n_available_cols -= 10;  // some random value that is used to fix getmaxyx error
         if (n_available_rows != new_n_available_rows ||
             n_available_cols != new_n_available_cols) {
+            if (!n_read_items)
+                continue;
 
             n_available_rows = new_n_available_rows;
             n_available_cols = new_n_available_cols;
-            row_downscale_coef = MAX(FRAME_HEIGHT / n_available_rows, 1);
-            col_downscale_coef = MAX(FRAME_WIDTH / n_available_cols, 1);
+            row_downscale_coef = (FRAME_HEIGHT + n_available_rows) / n_available_rows;  // MAX(, 1);
+            col_downscale_coef = (FRAME_WIDTH  + n_available_cols) / n_available_cols;  // MAX(, 1);
             free(buffer);
             buffer = calloc(sizeof(char), n_available_cols * n_available_rows);
         } else if (!n_read_items) {  // <== this if statement is needed for camera to work properly.
             break;                   // stops when you couldn't read anything even if you didn't resize terminal.
         }
 
+        int line_term_n = 0;
         offset = 0;
         for (cur_char_row_index=0, cur_pixel_row=0;
              cur_char_row_index < n_available_rows - 1 &&
@@ -186,21 +207,30 @@ int main(int argc, char *argv[]) {
                  cur_char_col_index < n_available_cols - 1 &&
                  cur_pixel_col < FRAME_WIDTH - FRAME_WIDTH % col_downscale_coef;
                  ++cur_char_col_index,
-                 cur_pixel_col += col_downscale_coef)
+                         cur_pixel_col += col_downscale_coef)
                 buffer[offset + cur_char_col_index] = get_char_given_intensity(
                         get_region_intensity(cur_pixel_row, cur_pixel_col,
                                              row_downscale_coef, col_downscale_coef,
                                              frame), char_set, max_char_set_index);
             buffer[offset + cur_char_col_index] = '\n';
+            for (unsigned int j = offset + cur_char_col_index+1; j < offset + n_available_cols; ++j)
+                buffer[j] = ' ';
             offset += n_available_cols;
+            ++line_term_n;
         }
         buffer[offset] = '\0';
-        move(0, 0);
+//        move(0, 0);
+        clear();
+//        printw("%dx%d\n", n_available_rows, n_available_cols);
+//        printw("-> %d|%d\n\n", row_downscale_coef, col_downscale_coef);
+//        printw("%d\n", n_read_items);
         printw("%s\n", buffer);
+//        fprintf(test, "<%ldx%ld %d><start>\n%s\n<end>\n\n", cur_char_row_index, cur_char_col_index, line_term_n, buffer);
         refresh();
         t = micros() - t;
         usleep(FRAME_TIMING_SLEEP - t);
     }
+//    fclose(test);
     free(buffer);
     getchar();
     endwin();
