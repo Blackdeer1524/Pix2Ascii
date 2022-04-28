@@ -172,8 +172,10 @@ int main(int argc, char *argv[]) {
     char *buffer = NULL;
     unsigned long t;
 
+    int changed;
     FILE *test = fopen("./test_data.txt", "w");
     while (1) {
+        changed = 0;
         // when terminal is being resized, you can NOT read anything from camera
         // (don't know why). This results in n_read_items = 0.
         n_read_items = fread(frame, 1, TOTAL_READ_SIZE, pipein);
@@ -184,16 +186,16 @@ int main(int argc, char *argv[]) {
             n_available_cols != new_n_available_cols) {
             if (!n_read_items)
                 continue;
-
+            changed = 1;
             n_available_rows = new_n_available_rows;
             n_available_cols = new_n_available_cols;
-            row_downscale_coef = (FRAME_HEIGHT + n_available_rows) / n_available_rows;  // MAX(, 1);
-            col_downscale_coef = (FRAME_WIDTH  + n_available_cols) / n_available_cols;  // MAX(, 1);
+            row_downscale_coef = MAX((FRAME_HEIGHT + n_available_rows) / n_available_rows, 1);
+            col_downscale_coef = MAX((FRAME_WIDTH  + n_available_cols) / n_available_cols, 1);  // MAX(, 1);
             free(buffer);
             buffer = calloc(sizeof(char), n_available_cols * n_available_rows);
-        } else if (!n_read_items) {  // <== this if statement is needed for camera to work properly.
-            break;                   // stops when you couldn't read anything even if you didn't resize terminal.
-        }
+    //        } else if (!n_read_items) {  // <== this if statement is needed for camera to work properly.
+    //            break;                   // stops when you couldn't read anything even if you didn't resize terminal.
+            }
 
         int line_term_n = 0;
         offset = 0;
@@ -219,7 +221,10 @@ int main(int argc, char *argv[]) {
             ++line_term_n;
         }
         buffer[offset-1] = '\0';
-        move(0, 0);
+        if (changed)
+            clear();
+        else
+            move(0, 0);
         printw("%s\n", buffer);
         refresh();
         t = micros() - t;
