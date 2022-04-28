@@ -4,15 +4,10 @@
 #include <unistd.h>
 #include <time.h>
 
-#include "utils.h"
-#include <stdlib.h>
-
 #define FRAME_WIDTH 1280
 #define FRAME_HEIGHT 720       // 1280    16
 #define ASPECT_RATIO_WIDTH 16  // ---- =  --
 #define ASPECT_RATIO_HEIGHT 9  //  720     9
-
-
 #define VIDEO_FRAMERATE 24
 #define TOTAL_READ_SIZE (FRAME_WIDTH * FRAME_HEIGHT * 3)
 #define FRAME_TIMING_SLEEP 1000000 / VIDEO_FRAMERATE
@@ -104,7 +99,6 @@ void draw_frame(const unsigned char screen[FRAME_HEIGHT][FRAME_WIDTH][3],
     refresh();
 }
 
-#include <math.h>
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         fprintf(stderr, "Bad number of arguments!\n");
@@ -207,14 +201,12 @@ int main(int argc, char *argv[]) {
                           &row_downscale_coef, &col_downscale_coef,
                           char_set, max_char_set_index);
 
-//        min_frame_proc_time = MIN(min_frame_proc_time, frame_proc_time);
         frame_proc_time = micros() - start;
         // compensates time loss (?)
         if (FRAME_TIMING_SLEEP < frame_proc_time) {
             total_loosed_frames = (double) (frame_proc_time - FRAME_TIMING_SLEEP) / FRAME_TIMING_SLEEP;
             n_frames_to_skip = frame_proc_time / FRAME_TIMING_SLEEP;
             n_loosed_frames =  (frame_proc_time - FRAME_TIMING_SLEEP) / FRAME_TIMING_SLEEP;
-//            sleep_time = (unsigned int) (FRAME_TIMING_SLEEP * (total_loosed_frames - n_loosed_frames));
             fseek(pipein, TOTAL_READ_SIZE * n_frames_to_skip, SEEK_CUR);
             usleep((unsigned int) (FRAME_TIMING_SLEEP * (total_loosed_frames - n_loosed_frames)));
             continue;
