@@ -217,7 +217,7 @@ int main(int argc, char *argv[]) {
     if (reading_type == SOURCE_CAMERA) {
         n_chars_printed = sprintf(command_buffer, "ffmpeg -hide_banner -loglevel error "
                                                   "-f v4l2 -i /dev/video0 -f image2pipe "
-                                                  "-vf fps=%d -vf scale=%d%d -vcodec rawvideo -pix_fmt rgb24 -",
+                                                  "-vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -",
                                   VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
     } else if (reading_type == SOURCE_FILE) {
         // obtaining input resolution
