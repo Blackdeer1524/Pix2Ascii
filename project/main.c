@@ -23,7 +23,7 @@ static char_set_data char_sets[CHARSET_N] = {
         {"@%#*+=-:. ", 9},
         {"NBUa1|^` ", 8},
         {"N@#W$9876543210?!abc;:+=-,._ ", 28},
-        };
+};
 
 #include <assert.h>
 char get_char_given_intensity(unsigned char intensity, const char *char_set, unsigned int max_index) {
@@ -281,7 +281,7 @@ int main(int argc, char *argv[]) {
     // (!ferror(pipein) && (n_read_items || !feof(pipein)))
 //    while (!ferror(pipein) && ((n_read_items = fread(frame, 1, TOTAL_READ_SIZE, pipein)) || !feof(pipein))) {
 
-    while ((n_read_items = fread(frame, 1, TOTAL_READ_SIZE, pipein)) || !feof(pipein)) {
+    while ((n_read_items = fread(frame, 1, TOTAL_READ_SIZE, pipein)) || !feof(pipein) || !ferror(pipein)) {
         start = micros();
         if (n_read_items < TOTAL_READ_SIZE)
             continue;
