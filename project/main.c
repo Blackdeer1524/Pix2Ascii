@@ -39,7 +39,7 @@ static unsigned char frame[FRAME_HEIGHT][FRAME_WIDTH][3] = {0};
 typedef unsigned char (*region_intensity_t)(unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
                                    unsigned long row_step, unsigned long col_step);
 
-unsigned char average_intensity(unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
+unsigned char average_chanel_intensity(unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
                                    unsigned long row_step, unsigned long col_step) {
     unsigned int cumulate_brightness = 0;
     for (unsigned long i = cur_pixel_row; i < cur_pixel_row + row_step; ++i)
@@ -49,6 +49,19 @@ unsigned char average_intensity(unsigned long cur_pixel_row,  unsigned long cur_
             cumulate_brightness += frame[cur_pixel_row][cur_pixel_col][2];
         }
     return cumulate_brightness / (row_step * col_step * 3);
+}
+
+unsigned char yuv_intensity(unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
+                            unsigned long row_step, unsigned long col_step) {
+    unsigned int r = 0, g = 0, b = 0;
+    for (unsigned long i = cur_pixel_row; i < cur_pixel_row + row_step; ++i)
+        for (unsigned long j = cur_pixel_col; j < cur_pixel_col + col_step; ++j) {
+            r += frame[cur_pixel_row][cur_pixel_col][0];
+            g += frame[cur_pixel_row][cur_pixel_col][1];
+            b += frame[cur_pixel_row][cur_pixel_col][2];
+        }
+    double test = (r * 0.299 + 0.587 * g + 0.114 * b) / (row_step * col_step * 3);
+    return (unsigned char) MIN(test, 255);
 }
 
 
@@ -108,6 +121,7 @@ int main(int argc, char *argv[]) {
     t_source reading_type = SOURCE_FILE;
     char *filepath = NULL;
     t_char_set picked_char_set_type = CHARSET_OPTIMAL;
+    region_intensity_t grayscale_method = average_chanel_intensity;
 
     for (int i=1; i<argc;) {
         if (argv[i][0] != '-') {
@@ -127,20 +141,35 @@ int main(int argc, char *argv[]) {
                 filepath = argv[i + 1];
                 i += 2;
             }
-        } else if (!strcmp(&argv[i][1], "color")){
+        } else if (!strcmp(&argv[i][1], "color")) {
             if (i == argc - 1 || argv[i + 1][0] == '-') {
                 fprintf(stderr, "Invalid argument! Color scheme is not given!\n");
                 return -1;
             }
 
-            if (!strcmp(argv[i + 1], "sharp")){
+            if (!strcmp(argv[i + 1], "sharp")) {
                 picked_char_set_type = CHARSET_SHARP;
-            } else if (!strcmp(argv[i + 1], "optimal")){
+            } else if (!strcmp(argv[i + 1], "optimal")) {
                 picked_char_set_type = CHARSET_OPTIMAL;
-            } else if (!strcmp(argv[i + 1], "standart")){
+            } else if (!strcmp(argv[i + 1], "standart")) {
                 picked_char_set_type = CHARSET_STANDART;
             } else {
                 fprintf(stderr, "Invalid argument! Unsupported scheme!\n");
+                return -1;
+            }
+            i += 2;
+        } else if (!strcmp(&argv[i][1], "method")) {
+            if (i == argc - 1 || argv[i + 1][0] == '-') {
+                fprintf(stderr, "Invalid argument! Color scheme is not given!\n");
+                return -1;
+            }
+
+            if (!strcmp(argv[i + 1], "average")) {
+                grayscale_method = average_chanel_intensity;
+            } else if (!strcmp(argv[i + 1], "yuv")) {
+                grayscale_method = yuv_intensity;
+            } else {
+                fprintf(stderr, "Invalid argument! Unsupported grayscale method!\n");
                 return -1;
             }
             i += 2;
@@ -169,6 +198,8 @@ int main(int argc, char *argv[]) {
     char *char_set = char_sets[picked_char_set_type].char_set;
     unsigned int max_char_set_index = char_sets[picked_char_set_type].last_index;
 
+
+
     FILE *pipein = popen(command_buffer, "r");
     if (!pipein) {
         fprintf(stderr, "Error when obtaining data stream!\n");
@@ -194,7 +225,7 @@ int main(int argc, char *argv[]) {
         if (n_read_items < TOTAL_READ_SIZE)
             continue;
 
-        draw_frame(char_set, max_char_set_index, average_intensity);
+        draw_frame(char_set, max_char_set_index, grayscale_method);
         frame_proc_time = micros() - start;
         // compensates time loss (?)
         if (FRAME_TIMING_SLEEP < frame_proc_time) {
