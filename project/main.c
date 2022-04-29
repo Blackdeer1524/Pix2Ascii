@@ -3,14 +3,11 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
+#include <stdlib.h>
 
-#define FRAME_WIDTH 1280
-#define FRAME_HEIGHT 720       // 1280    16
-#define ASPECT_RATIO_WIDTH 16  // ---- =  --
-#define ASPECT_RATIO_HEIGHT 9  //  720     9
 #define VIDEO_FRAMERATE 24
-#define TOTAL_READ_SIZE (FRAME_WIDTH * FRAME_HEIGHT * 3)
 #define FRAME_TIMING_SLEEP 1000000 / VIDEO_FRAMERATE
+#define COMMAND_BUFFER_SIZE 512
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
@@ -30,36 +27,48 @@ static char_set_data char_sets[CHARSET_N] = {
 
 #include <assert.h>
 char get_char_given_intensity(unsigned char intensity, const char *char_set, unsigned int max_index) {
-    return char_set[max_index - intensity * max_index / 255];
+    size_t index = intensity * max_index / 255;
+    assert(0 <= index && index <= max_index);
+    return char_set[max_index - index];
 }
 
 
-static unsigned char frame[FRAME_HEIGHT][FRAME_WIDTH][3] = {0};
+typedef unsigned char (*region_intensity_t)(const unsigned char *frame,
+                                            unsigned int frame_width,
+                                            unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
+                                            unsigned long row_step, unsigned long col_step);
 
-typedef unsigned char (*region_intensity_t)(unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
-                                   unsigned long row_step, unsigned long col_step);
-
-unsigned char average_chanel_intensity(unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
-                                   unsigned long row_step, unsigned long col_step) {
+unsigned char average_chanel_intensity(const unsigned char *frame,
+                                       unsigned int frame_width,
+                                       unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
+                                       unsigned long row_step, unsigned long col_step) {
     unsigned int cumulate_brightness = 0;
-    for (unsigned long i = cur_pixel_row; i < cur_pixel_row + row_step; ++i)
+    for (unsigned long i = cur_pixel_row; i < cur_pixel_row + row_step; ++i) {
+        size_t row_offset = frame_width * cur_pixel_row * 3;
         for (unsigned long j = cur_pixel_col; j < cur_pixel_col + col_step; ++j) {
-            cumulate_brightness += frame[cur_pixel_row][cur_pixel_col][0];
-            cumulate_brightness += frame[cur_pixel_row][cur_pixel_col][1];
-            cumulate_brightness += frame[cur_pixel_row][cur_pixel_col][2];
+            size_t col_offset = cur_pixel_col * 3;
+            cumulate_brightness += frame[row_offset + col_offset];
+            cumulate_brightness += frame[row_offset + col_offset + 1];
+            cumulate_brightness += frame[row_offset + col_offset + 2];
         }
+    }
     return cumulate_brightness / (row_step * col_step * 3);
 }
 
-unsigned char yuv_intensity(unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
+unsigned char yuv_intensity(const unsigned char *frame,
+                            unsigned int frame_width,
+                            unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
                             unsigned long row_step, unsigned long col_step) {
     unsigned int r = 0, g = 0, b = 0;
-    for (unsigned long i = cur_pixel_row; i < cur_pixel_row + row_step; ++i)
+    for (unsigned long i = cur_pixel_row; i < cur_pixel_row + row_step; ++i) {
+        size_t row_offset = frame_width * cur_pixel_row * 3;
         for (unsigned long j = cur_pixel_col; j < cur_pixel_col + col_step; ++j) {
-            r += frame[cur_pixel_row][cur_pixel_col][0];
-            g += frame[cur_pixel_row][cur_pixel_col][1];
-            b += frame[cur_pixel_row][cur_pixel_col][2];
+            size_t col_offset = cur_pixel_col * 3;
+            r += frame[row_offset + col_offset];
+            g += frame[row_offset + col_offset + 1];
+            b += frame[row_offset + col_offset + 2];
         }
+    }
     double test = (r * 0.299 + 0.587 * g + 0.114 * b) / (row_step * col_step * 3);
     return (unsigned char) MIN(test, 255);
 }
@@ -77,7 +86,11 @@ typedef enum {SOURCE_FILE, SOURCE_CAMERA} t_source;
 static unsigned int n_available_rows = 0, n_available_cols = 0;
 static unsigned int row_downscale_coef = 1, col_downscale_coef = 1;
 
-void draw_frame(const char char_set[],
+
+void draw_frame(const unsigned char *frame,
+                unsigned int frame_width,
+                unsigned int frame_height,
+                const char char_set[],
                 unsigned int max_char_set_index,
                 region_intensity_t get_region_intensity) {
 
@@ -89,18 +102,20 @@ void draw_frame(const char char_set[],
         n_available_cols != new_n_available_cols) {
         n_available_rows = new_n_available_rows;
         n_available_cols = new_n_available_cols;
-        row_downscale_coef = MAX((FRAME_HEIGHT + n_available_rows) / n_available_rows, 1);
-        col_downscale_coef = MAX((FRAME_WIDTH  + n_available_cols) / n_available_cols, 1);
+        row_downscale_coef = MAX((frame_height + n_available_rows) / n_available_rows, 1);
+        col_downscale_coef = MAX((frame_width  + n_available_cols) / n_available_cols, 1);
     }
 
     for (cur_pixel_row=0;
-         cur_pixel_row < FRAME_HEIGHT - FRAME_HEIGHT % row_downscale_coef;
+         cur_pixel_row < frame_height - frame_height % row_downscale_coef;
          cur_pixel_row += row_downscale_coef) {
 
         for (cur_pixel_col=0;
-             cur_pixel_col < FRAME_WIDTH - FRAME_WIDTH % col_downscale_coef;
+             cur_pixel_col < frame_width - frame_width % col_downscale_coef;
              cur_pixel_col += col_downscale_coef)
-            addch(get_char_given_intensity(get_region_intensity(cur_pixel_row, cur_pixel_col,
+            addch(get_char_given_intensity(get_region_intensity(frame,
+                                                                frame_width,
+                                                                cur_pixel_row, cur_pixel_col,
                                                                 row_downscale_coef, col_downscale_coef),
                                            char_set, max_char_set_index));
         addch('\n');
@@ -108,6 +123,18 @@ void draw_frame(const char char_set[],
     move(0, 0);
     refresh();
 }
+
+
+void close_pipe(FILE *pipeline) {
+    fflush(pipeline);
+    pclose(pipeline);
+}
+
+void free_space(unsigned char *frame, FILE *pipeline){
+    free(frame);
+    close_pipe(pipeline);
+}
+
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
@@ -179,32 +206,66 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    char command_buffer[512];
-    int n = 0;
-    if (reading_type == SOURCE_CAMERA)
-        n = sprintf(command_buffer, "ffmpeg -hide_banner -loglevel error "
-                                    "-f v4l2 -i /dev/video0 -f image2pipe "
-                                    "-vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -",
-                    VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
-    else if (reading_type == SOURCE_FILE)
-        n = sprintf(command_buffer, "ffmpeg -i %s -f image2pipe -hide_banner -loglevel error "
-                                    "-vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -",
-                    filepath, VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
-    if (n < 0) {
-        fprintf(stderr, "Error writing ffmpeg query!\n");
-        return -1;
-    }
-
     char *char_set = char_sets[picked_char_set_type].char_set;
     unsigned int max_char_set_index = char_sets[picked_char_set_type].last_index;
 
+    char command_buffer[COMMAND_BUFFER_SIZE];
+    int n_chars_printed = 0;
 
+    unsigned int FRAME_WIDTH = 1280, FRAME_HEIGHT = 720;
+    // obtaining an interface with ffmpeg
+    if (reading_type == SOURCE_CAMERA) {
+        n_chars_printed = sprintf(command_buffer, "ffmpeg -hide_banner -loglevel error "
+                                                  "-f v4l2 -i /dev/video0 -f image2pipe "
+                                                  "-vf fps=%d -vf scale=%d%d -vcodec rawvideo -pix_fmt rgb24 -",
+                                  VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
+    } else if (reading_type == SOURCE_FILE) {
+        // obtaining input resolution
+        n_chars_printed = sprintf(command_buffer, "ffprobe -v error -select_streams v:0 "
+                                                  "-show_entries stream=width,height -of default=nw=1:nk=1 %s",
+                                  filepath);
+        if (n_chars_printed < 0) {
+            fprintf(stderr, "Error obtaining input resolution!\n");
+            return -1;
+        } else if (n_chars_printed >= COMMAND_BUFFER_SIZE) {
+            fprintf(stderr, "Error obtaining input resolution! Query is too big!\n");
+            return -1;
+        }
+
+        FILE *image_data_pipe = popen(command_buffer, "r");
+        if (!image_data_pipe) {
+            fprintf(stderr, "Error obtaining input resolution! Couldn't get an interface with ffprobe!\n");
+            return -1;
+        }
+
+        if (fscanf(image_data_pipe, "%u %u", &FRAME_WIDTH, &FRAME_HEIGHT) != 2 ||
+            fflush(image_data_pipe) || fclose(image_data_pipe)) {
+            fprintf(stderr, "Error obtaining input resolution! Width/height not found\n");
+            return -1;
+        }
+
+        n_chars_printed = sprintf(command_buffer, "ffmpeg -i %s -f image2pipe -hide_banner -loglevel error "
+                                                  "-vf fps=%d -vcodec rawvideo -pix_fmt rgb24 -",
+                                  filepath, VIDEO_FRAMERATE);
+    }
+
+    if (n_chars_printed < 0) {
+        fprintf(stderr, "Error preparing ffmpeg command!\n");
+        return -1;
+    } else if (n_chars_printed >= COMMAND_BUFFER_SIZE) {
+        fprintf(stderr, "Error preparing ffmpeg command! Query size is too big!\n");
+        return -1;
+    }
 
     FILE *pipein = popen(command_buffer, "r");
     if (!pipein) {
-        fprintf(stderr, "Error when obtaining data stream!\n");
+        fprintf(stderr, "Error when obtaining data stream! Couldn't get an interface with ffmpeg!\n");
         return -1;
     }
+
+    unsigned char *frame = malloc(sizeof(char) * FRAME_HEIGHT * FRAME_WIDTH * 3);
+    unsigned int TOTAL_READ_SIZE = (FRAME_WIDTH * FRAME_HEIGHT * 3);
+
     initscr();
     curs_set(0);
 
@@ -225,7 +286,7 @@ int main(int argc, char *argv[]) {
         if (n_read_items < TOTAL_READ_SIZE)
             continue;
 
-        draw_frame(char_set, max_char_set_index, grayscale_method);
+        draw_frame(frame, FRAME_WIDTH, FRAME_HEIGHT, char_set, max_char_set_index, grayscale_method);
         frame_proc_time = micros() - start;
         // compensates time loss (?)
         if (FRAME_TIMING_SLEEP < frame_proc_time) {
@@ -239,8 +300,7 @@ int main(int argc, char *argv[]) {
         usleep(FRAME_TIMING_SLEEP - frame_proc_time);
     }
     getchar();
+    free_space(frame, pipein);
     endwin();
-    fflush(pipein);
-    pclose(pipein);
     return 0;
 }
