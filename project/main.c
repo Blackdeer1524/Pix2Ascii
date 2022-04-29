@@ -29,26 +29,24 @@ static char_set_data char_sets[CHARSET_N] = {
         };
 
 #include <assert.h>
-typedef char get_char_intensity(unsigned char intensity, const char *char_set, unsigned int max_index);
-
-
 char get_char_given_intensity(unsigned char intensity, const char *char_set, unsigned int max_index) {
-    unsigned int test = max_index - intensity * max_index / 255;
     return char_set[max_index - intensity * max_index / 255];
 }
 
 
-unsigned char frame[FRAME_HEIGHT][FRAME_WIDTH][3] = {0};
+static unsigned char frame[FRAME_HEIGHT][FRAME_WIDTH][3] = {0};
 
-unsigned char get_region_intensity(unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
-                                   unsigned long row_step, unsigned long col_step,
-                                   const unsigned char screen_data[FRAME_HEIGHT][FRAME_WIDTH][3]) {
+typedef unsigned char (*region_intensity_t)(unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
+                                   unsigned long row_step, unsigned long col_step);
+
+unsigned char average_intensity(unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
+                                   unsigned long row_step, unsigned long col_step) {
     unsigned int cumulate_brightness = 0;
     for (unsigned long i = cur_pixel_row; i < cur_pixel_row + row_step; ++i)
         for (unsigned long j = cur_pixel_col; j < cur_pixel_col + col_step; ++j) {
-            cumulate_brightness += screen_data[cur_pixel_row][cur_pixel_col][0];
-            cumulate_brightness += screen_data[cur_pixel_row][cur_pixel_col][1];
-            cumulate_brightness += screen_data[cur_pixel_row][cur_pixel_col][2];
+            cumulate_brightness += frame[cur_pixel_row][cur_pixel_col][0];
+            cumulate_brightness += frame[cur_pixel_row][cur_pixel_col][1];
+            cumulate_brightness += frame[cur_pixel_row][cur_pixel_col][2];
         }
     return cumulate_brightness / (row_step * col_step * 3);
 }
@@ -66,10 +64,9 @@ typedef enum {SOURCE_FILE, SOURCE_CAMERA} t_source;
 static unsigned int n_available_rows = 0, n_available_cols = 0;
 static unsigned int row_downscale_coef = 1, col_downscale_coef = 1;
 
-void draw_frame(const unsigned char screen[FRAME_HEIGHT][FRAME_WIDTH][3],
-                const char char_set[],
+void draw_frame(const char char_set[],
                 unsigned int max_char_set_index,
-                get_char_intensity get_char_given_intensity) {
+                region_intensity_t get_region_intensity) {
 
     static unsigned int new_n_available_rows, new_n_available_cols;
     static unsigned int cur_pixel_row, cur_pixel_col;
@@ -91,8 +88,7 @@ void draw_frame(const unsigned char screen[FRAME_HEIGHT][FRAME_WIDTH][3],
              cur_pixel_col < FRAME_WIDTH - FRAME_WIDTH % col_downscale_coef;
              cur_pixel_col += col_downscale_coef)
             addch(get_char_given_intensity(get_region_intensity(cur_pixel_row, cur_pixel_col,
-                                                                row_downscale_coef, col_downscale_coef,
-                                                                screen),
+                                                                row_downscale_coef, col_downscale_coef),
                                            char_set, max_char_set_index));
         addch('\n');
     }
@@ -197,8 +193,8 @@ int main(int argc, char *argv[]) {
         start = micros();
         if (n_read_items < TOTAL_READ_SIZE)
             continue;
-        draw_frame(frame, char_set, max_char_set_index, get_char_given_intensity);
 
+        draw_frame(char_set, max_char_set_index, average_intensity);
         frame_proc_time = micros() - start;
         // compensates time loss (?)
         if (FRAME_TIMING_SLEEP < frame_proc_time) {
