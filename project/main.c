@@ -2,10 +2,10 @@
 #include <ncurses.h>
 #include <string.h>
 #include <unistd.h>
-#include <time.h>
+#include <sys/time.h>
 #include <stdlib.h>
 
-#define VIDEO_FRAMERATE 24
+#define VIDEO_FRAMERATE 60
 #define N_MICROSECONDS_IN_ONE_SEC 1000000
 #define FRAME_TIMING_SLEEP N_MICROSECONDS_IN_ONE_SEC / VIDEO_FRAMERATE
 #define COMMAND_BUFFER_SIZE 512
@@ -98,33 +98,33 @@ unsigned char yuv_intensity(const unsigned char *frame,
 }
 
 // Timer =============================================
-typedef struct timespec timespec;
+typedef struct timeval timeval;
 
-timespec startTime;
+timeval startTime;
 uint64_t lastCallTimeMicros = 0;
 
-timespec diff(timespec *start, timespec *end) {
-    timespec temp;
+timeval diff(timeval *start, timeval *end) {
+    timeval temp;
     temp.tv_sec = end->tv_sec - start->tv_sec;
-    if ((end->tv_nsec < start->tv_nsec)) {
+    if ((end->tv_usec < start->tv_usec)) {
         --temp.tv_sec;
-        temp.tv_nsec = N_MICROSECONDS_IN_ONE_SEC * 1000 + end->tv_nsec - start->tv_nsec;
+        temp.tv_usec = N_MICROSECONDS_IN_ONE_SEC + end->tv_usec - start->tv_usec;
     } else {
-        temp.tv_nsec = end->tv_nsec - start->tv_nsec;
+        temp.tv_usec = end->tv_usec - start->tv_usec;
     }
     return temp;
 }
 
 // total time elapsed from start
 uint64_t get_elapsed_time_from_start_micros(){
-    static timespec tmpTime;
-    clock_gettime(CLOCK_MONOTONIC_RAW, &tmpTime);
-    timespec diffTime = diff(&startTime, &tmpTime);
-    return  ((uint64_t)diffTime.tv_sec * N_MICROSECONDS_IN_ONE_SEC * 1000 + (uint64_t)diffTime.tv_nsec)/1000;
+    static timeval tmpTime, diffTime;
+    gettimeofday(&tmpTime, NULL);
+    diffTime = diff(&startTime, &tmpTime);
+    return  (uint64_t)diffTime.tv_sec * N_MICROSECONDS_IN_ONE_SEC + (uint64_t)diffTime.tv_usec;
 }
 
 int set_timer() {
-    clock_gettime(CLOCK_MONOTONIC_RAW, &startTime);
+    gettimeofday(&startTime, NULL);
     return 0;
 }
 
@@ -347,6 +347,7 @@ int main(int argc, char *argv[]) {
 
         // main frames sync
         total_elapsed_time = get_elapsed_time_from_start_micros();
+        sleep_time = frame_timing_sleep - (total_elapsed_time % frame_timing_sleep);
         time_current_frame_number = total_elapsed_time / frame_timing_sleep;
 
         // debug info
@@ -356,6 +357,7 @@ int main(int argc, char *argv[]) {
                 current_frame_number / ((long double) total_elapsed_time / N_MICROSECONDS_IN_ONE_SEC) , total_elapsed_time,
                 current_frame_number, time_current_frame_number, time_current_frame_number - current_frame_number);
 
+        usleep(sleep_time);
         if (time_current_frame_number > current_frame_number) {
             fseek(pipein, TOTAL_READ_SIZE * (time_current_frame_number - current_frame_number), SEEK_CUR);
             current_frame_number = time_current_frame_number;
@@ -365,8 +367,6 @@ int main(int argc, char *argv[]) {
         ++current_frame_number;
         // additional sync
 //        total_elapsed_time = get_elapsed_time_from_start_micros();
-        sleep_time = frame_timing_sleep - (total_elapsed_time % frame_timing_sleep);
-        usleep(sleep_time);
     }
     getchar();
     free_space(frame, pipein);
