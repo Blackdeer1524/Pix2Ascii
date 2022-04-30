@@ -5,7 +5,7 @@
 #include <sys/time.h>
 #include <stdlib.h>
 
-#define VIDEO_FRAMERATE 60
+#define VIDEO_FRAMERATE 25
 #define N_MICROSECONDS_IN_ONE_SEC 1000000
 #define FRAME_TIMING_SLEEP N_MICROSECONDS_IN_ONE_SEC / VIDEO_FRAMERATE
 #define COMMAND_BUFFER_SIZE 512
@@ -332,15 +332,18 @@ int main(int argc, char *argv[]) {
 
     uint64_t n_read_items;  // n bytes read from pipe
     uint64_t current_frame_number = 0;
-    uint64_t time_current_frame_number;
+    uint64_t next_frame_index;
 
     uint64_t total_elapsed_time;
-    uint64_t sleep_time;
     uint64_t frame_timing_sleep = FRAME_TIMING_SLEEP;
+    uint64_t sleep_time;
 
     set_timer();
-    while ((n_read_items = fread(frame, sizeof(char), TOTAL_READ_SIZE, pipein))) {
+    while ((n_read_items = fread(frame, sizeof(char), TOTAL_READ_SIZE, pipein)) || !feof(pipein)) {
         if (n_read_items < TOTAL_READ_SIZE) {
+            total_elapsed_time = get_elapsed_time_from_start_micros();
+            sleep_time = frame_timing_sleep - (total_elapsed_time % frame_timing_sleep);
+            usleep(sleep_time);
             continue;
         }
         draw_frame(frame, FRAME_WIDTH, FRAME_HEIGHT, char_set, max_char_set_index, grayscale_method);
@@ -348,25 +351,20 @@ int main(int argc, char *argv[]) {
         // main frames sync
         total_elapsed_time = get_elapsed_time_from_start_micros();
         sleep_time = frame_timing_sleep - (total_elapsed_time % frame_timing_sleep);
-        time_current_frame_number = total_elapsed_time / frame_timing_sleep;
+        next_frame_index = total_elapsed_time / frame_timing_sleep + (total_elapsed_time % frame_timing_sleep != 0);
 
         // debug info
         // EL - elapsed time from start; FN - current Frame Number;
         // TFN - current Frame Number measured by elapsed time
         printw("\nFPS:%llf|EL:%" PRIu64 "|FN:%" PRIu64 "|TFN:%" PRIu64 "|TFN - FN:%" PRId64 "\n",
                 current_frame_number / ((long double) total_elapsed_time / N_MICROSECONDS_IN_ONE_SEC) , total_elapsed_time,
-                current_frame_number, time_current_frame_number, time_current_frame_number - current_frame_number);
+                current_frame_number, next_frame_index, next_frame_index - current_frame_number);
 
         usleep(sleep_time);
-        if (time_current_frame_number > current_frame_number) {
-            fseek(pipein, TOTAL_READ_SIZE * (time_current_frame_number - current_frame_number), SEEK_CUR);
-            current_frame_number = time_current_frame_number;
-        } else if (time_current_frame_number < current_frame_number) {
-            continue;
+        if (next_frame_index >= current_frame_number) {
+            fseek(pipein, TOTAL_READ_SIZE * (next_frame_index - current_frame_number), SEEK_CUR);
+            current_frame_number = next_frame_index;
         }
-        ++current_frame_number;
-        // additional sync
-//        total_elapsed_time = get_elapsed_time_from_start_micros();
     }
     getchar();
     free_space(frame, pipein);
