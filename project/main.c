@@ -5,7 +5,7 @@
 #include <time.h>
 #include <stdlib.h>
 
-#define VIDEO_FRAMERATE 24
+#define VIDEO_FRAMERATE 60
 #define FRAME_TIMING_SLEEP 1000000 / VIDEO_FRAMERATE
 #define COMMAND_BUFFER_SIZE 512
 
@@ -96,13 +96,11 @@ unsigned char yuv_intensity(const unsigned char *frame,
     return (unsigned char) MIN(test, 255);
 }
 
-// =============================================================
-
+// Timer =============================================
 typedef struct timespec timespec;
 
 timespec startTime;
 uint64_t lastCallTimeMicros = 0;
-//uint64_t timerStartTimeMicros;
 
 timespec diff(timespec *start, timespec *end) {
     timespec temp;
@@ -117,26 +115,20 @@ timespec diff(timespec *start, timespec *end) {
 }
 
 // total time elapsed from start
-uint64_t getAppTimeMicros(){
+uint64_t get_elapsed_time_from_start_micros(){
     static timespec tmpTime;
     clock_gettime(CLOCK_MONOTONIC_RAW, &tmpTime);
     timespec diffTime = diff(&startTime, &tmpTime);
     return  ((uint64_t)diffTime.tv_sec*1000000000 + (uint64_t)diffTime.tv_nsec)/1000;
 }
 
-int ofxMSATimer() {
+int set_timer() {
     clock_gettime(CLOCK_MONOTONIC_RAW, &startTime);
     return 0;
 }
 
-
 // =============================================================
 
-
-
-void record_time(struct timespec *ts) {
-    clock_gettime(CLOCK_MONOTONIC_RAW, ts);
-}
 
 typedef enum {SOURCE_FILE, SOURCE_CAMERA} t_source;
 
@@ -178,7 +170,7 @@ void draw_frame(const unsigned char *frame,
         move(cur_char_row, offset);
         for (cur_pixel_col=0;
              cur_pixel_col < trimmed_width;
-             cur_pixel_col += col_downscale_coef)  // addch
+             cur_pixel_col += col_downscale_coef)
             addch(get_char_given_intensity(get_region_intensity(frame,
                                                                 frame_width,
                                                                 cur_pixel_row, cur_pixel_col,
@@ -186,7 +178,6 @@ void draw_frame(const unsigned char *frame,
                                            char_set, max_char_set_index));
     }
     refresh();
-//    clear();
 }
 
 
@@ -340,31 +331,28 @@ int main(int argc, char *argv[]) {
     curs_set(0);
 
     uint64_t n_read_items;  // n bytes read from pipe
-    uint64_t frame_proc_time = 1;  // frame processing time vars
-    uint64_t n_frames_to_skip = 0;  // ceil (total loosed frames). Suppose that we loosed 1.5 frames
-                                        // Hence to synchronize our stream we have to omit ceil(1.5) = 2 frames
-
-    uint64_t frame_timing_sleep = FRAME_TIMING_SLEEP;
-
-//    !(clock_gettime(CLOCK_MONOTONIC_RAW, &start)) &&
     uint64_t current_frame_number = 0;
     uint64_t total_elapsed_time;
     uint64_t sleep_time;
     uint64_t time_current_frame_number;
-    ofxMSATimer();
+    uint64_t frame_timing_sleep = FRAME_TIMING_SLEEP;
+
+    set_timer();
     while ((n_read_items = fread(frame, 1, TOTAL_READ_SIZE, pipein))) {
-//        if (n_read_items < TOTAL_READ_SIZE) {
-//            usleep(FRAME_TIMING_SLEEP - (getMicrosSinceLastCall()));
-//            continue;
-//        }
+        if (n_read_items < TOTAL_READ_SIZE) {
+            continue;
+        }
         draw_frame(frame, FRAME_WIDTH, FRAME_HEIGHT, char_set, max_char_set_index, grayscale_method);
 
-        total_elapsed_time = getAppTimeMicros();
-        sleep_time = frame_timing_sleep - (total_elapsed_time % frame_timing_sleep);
+        // main frames sync
+        total_elapsed_time = get_elapsed_time_from_start_micros();
         time_current_frame_number = total_elapsed_time / frame_timing_sleep;
-        printw("EL:%" PRIu64 "|FN:%" PRIu64 "|TFN:%" PRIu64,
+
+        // debug info
+        // EL - elapsed time from start; FN - current Frame Number;
+        // TFN - current Frame Number measured by elapsed time
+        printw("\nEL:%" PRIu64 "|FN:%" PRIu64 "|TFN:%" PRIu64,
                total_elapsed_time, current_frame_number, time_current_frame_number);
-        refresh();
 
         if ((time_current_frame_number > current_frame_number)) {
             fseek(pipein, TOTAL_READ_SIZE * (time_current_frame_number - current_frame_number), SEEK_CUR);
@@ -372,8 +360,12 @@ int main(int argc, char *argv[]) {
         } else if (time_current_frame_number < current_frame_number) {
             continue;
         }
-        usleep(sleep_time);
         ++current_frame_number;
+
+        // additional sync
+        total_elapsed_time = get_elapsed_time_from_start_micros();
+        sleep_time = frame_timing_sleep - (total_elapsed_time % frame_timing_sleep);
+        usleep(sleep_time);
     }
     getchar();
     free_space(frame, pipein);
