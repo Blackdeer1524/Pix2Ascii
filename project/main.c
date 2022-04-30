@@ -96,11 +96,53 @@ unsigned char yuv_intensity(const unsigned char *frame,
     return (unsigned char) MIN(test, 255);
 }
 
+// =============================================================
 
-unsigned long micros() {
-    static struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
-    return 1000000 * ts.tv_sec + ts.tv_nsec / 1000;
+typedef struct timespec timespec;
+
+timespec startTime;
+uint64_t lastCallTimeMicros = 0;
+//uint64_t timerStartTimeMicros;
+
+timespec diff(timespec *start, timespec *end) {
+    timespec temp;
+    temp.tv_sec = end->tv_sec - start->tv_sec;
+    if ((end->tv_nsec < start->tv_nsec)) {
+        --temp.tv_sec;
+        temp.tv_nsec = 1000000000 + end->tv_nsec - start->tv_nsec;
+    } else {
+        temp.tv_nsec = end->tv_nsec - start->tv_nsec;
+    }
+    return temp;
+}
+
+// total time elapsed from start
+uint64_t getAppTimeMicros(){
+    static timespec tmpTime;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &tmpTime);
+    timespec diffTime = diff(&startTime, &tmpTime);
+    return  ((int64_t)diffTime.tv_sec*1000000000 + (int64_t)diffTime.tv_nsec)/1000;
+}
+
+uint64_t getMicrosSinceLastCall(){
+    uint64_t ret = getAppTimeMicros() - lastCallTimeMicros;
+    lastCallTimeMicros = getAppTimeMicros();
+    return ret;
+}
+
+int ofxMSATimer() {
+    clock_gettime(CLOCK_MONOTONIC_RAW, &startTime);
+    lastCallTimeMicros = getAppTimeMicros();
+    return 0;
+}
+
+
+// =============================================================
+
+
+
+void record_time(struct timespec *ts) {
+    clock_gettime(CLOCK_MONOTONIC_RAW, ts);
 }
 
 typedef enum {SOURCE_FILE, SOURCE_CAMERA} t_source;
@@ -165,6 +207,7 @@ void free_space(unsigned char *frame, FILE *pipeline){
 }
 
 
+#include <inttypes.h>
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         fprintf(stderr, "Bad number of arguments!\n");
@@ -302,43 +345,29 @@ int main(int argc, char *argv[]) {
     initscr();
     curs_set(0);
 
-    char test[100000];
-    setbuf(stdout, test);
-
-    unsigned long n_read_items;  // n bytes read from pipe
-    double total_loosed_frames;  // fraction representation of loosed frames
-    unsigned int n_loosed_frames;  // floor (total loosed frames). This var corresponds to the number of
-                                   // WHOLE frames loosed while processing current one
-    unsigned long long start, frame_proc_time = 1;  // frame processing time vars
-    unsigned int n_frames_to_skip = 0;  // ceil (total loosed frames). Suppose that we loosed 1.5 frames
+    uint64_t n_read_items;  // n bytes read from pipe
+    uint64_t frame_proc_time = 1;  // frame processing time vars
+    uint64_t n_frames_to_skip = 0;  // ceil (total loosed frames). Suppose that we loosed 1.5 frames
                                         // Hence to synchronize our stream we have to omit ceil(1.5) = 2 frames
 
-    // !(ferror(pipein) || (!n_read_items && feof(pipein))) => (!ferror(pipein) && !(!n_read_items && feof(pipein))) =>
-    // (!ferror(pipein) && (n_read_items || !feof(pipein)))
-//    while (!ferror(pipein) && ((n_read_items = fread(frame, 1, TOTAL_READ_SIZE, pipein)) || !feof(pipein))) {
-//    popen("ffplay ./BadApple.mp4 -vn -nodisp -hide_banner -loglevel error", "r");
-//    FILE *t = popen("ffprobe -select_streams v -show_entries frame=pict_type -of csv ./BadApple.mp4"
-//                    " -hide_banner -loglevel error", "r");
-//    printf("<dfgsfdsdfhsdfgsdfgse>%s", command_buffer);
-//    exit(0);
-    while ((start = micros()) && ((n_read_items = fread(frame, 1, TOTAL_READ_SIZE, pipein)))) {
+    uint64_t frame_timing_sleep = FRAME_TIMING_SLEEP;
 
+    ofxMSATimer();
+//    !(clock_gettime(CLOCK_MONOTONIC_RAW, &start)) &&
+    while ((n_read_items = fread(frame, 1, TOTAL_READ_SIZE, pipein))) {
         if (n_read_items < TOTAL_READ_SIZE) {
-            usleep(FRAME_TIMING_SLEEP - (micros() - start));
+            usleep(FRAME_TIMING_SLEEP - (getMicrosSinceLastCall()));
             continue;
         }
 
         draw_frame(frame, FRAME_WIDTH, FRAME_HEIGHT, char_set, max_char_set_index, grayscale_method);
-        // compensates time loss (?)
-        if (FRAME_TIMING_SLEEP <= (frame_proc_time = micros() - start)) {
-            total_loosed_frames = (double) (frame_proc_time - FRAME_TIMING_SLEEP) / FRAME_TIMING_SLEEP;
-            n_frames_to_skip = frame_proc_time / FRAME_TIMING_SLEEP;
-            n_loosed_frames =  (frame_proc_time - FRAME_TIMING_SLEEP) / FRAME_TIMING_SLEEP;
+        if (FRAME_TIMING_SLEEP < (frame_proc_time = getMicrosSinceLastCall())) {
+            usleep(frame_timing_sleep - frame_proc_time % frame_timing_sleep);
+            n_frames_to_skip = frame_proc_time / frame_timing_sleep;
             fseek(pipein, TOTAL_READ_SIZE * n_frames_to_skip, SEEK_CUR);
-            usleep((unsigned int) (FRAME_TIMING_SLEEP * (total_loosed_frames - n_loosed_frames)));
             continue;
         }
-        usleep(FRAME_TIMING_SLEEP - (micros() - start));
+        usleep(frame_timing_sleep - frame_proc_time);
     }
     getchar();
     free_space(frame, pipein);
