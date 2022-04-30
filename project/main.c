@@ -354,20 +354,29 @@ int main(int argc, char *argv[]) {
 
     ofxMSATimer();
 //    !(clock_gettime(CLOCK_MONOTONIC_RAW, &start)) &&
+    uint64_t current_frame_number = 0;
+    uint64_t total_elapsed_time;
+    uint64_t sleep_time;
+    uint64_t time_current_frame_number;
+    uint64_t frame_difference;
+
+
     while ((n_read_items = fread(frame, 1, TOTAL_READ_SIZE, pipein))) {
         if (n_read_items < TOTAL_READ_SIZE) {
             usleep(FRAME_TIMING_SLEEP - (getMicrosSinceLastCall()));
             continue;
         }
-
         draw_frame(frame, FRAME_WIDTH, FRAME_HEIGHT, char_set, max_char_set_index, grayscale_method);
-        if (FRAME_TIMING_SLEEP < (frame_proc_time = getMicrosSinceLastCall())) {
-            usleep(frame_timing_sleep - frame_proc_time % frame_timing_sleep);
-            n_frames_to_skip = frame_proc_time / frame_timing_sleep;
-            fseek(pipein, TOTAL_READ_SIZE * n_frames_to_skip, SEEK_CUR);
-            continue;
+
+        total_elapsed_time = getAppTimeMicros();
+        sleep_time = frame_timing_sleep - (total_elapsed_time % frame_timing_sleep);
+        time_current_frame_number = total_elapsed_time / frame_timing_sleep;
+        if ((frame_difference = time_current_frame_number - current_frame_number) > 0) {
+            fseek(pipein, TOTAL_READ_SIZE * frame_difference, SEEK_CUR);
+            current_frame_number = time_current_frame_number;
         }
-        usleep(frame_timing_sleep - frame_proc_time);
+        usleep(sleep_time);
+        ++current_frame_number;
     }
     getchar();
     free_space(frame, pipein);
