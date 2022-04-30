@@ -121,18 +121,11 @@ uint64_t getAppTimeMicros(){
     static timespec tmpTime;
     clock_gettime(CLOCK_MONOTONIC_RAW, &tmpTime);
     timespec diffTime = diff(&startTime, &tmpTime);
-    return  ((int64_t)diffTime.tv_sec*1000000000 + (int64_t)diffTime.tv_nsec)/1000;
-}
-
-uint64_t getMicrosSinceLastCall(){
-    uint64_t ret = getAppTimeMicros() - lastCallTimeMicros;
-    lastCallTimeMicros = getAppTimeMicros();
-    return ret;
+    return  ((uint64_t)diffTime.tv_sec*1000000000 + (uint64_t)diffTime.tv_nsec)/1000;
 }
 
 int ofxMSATimer() {
     clock_gettime(CLOCK_MONOTONIC_RAW, &startTime);
-    lastCallTimeMicros = getAppTimeMicros();
     return 0;
 }
 
@@ -185,7 +178,7 @@ void draw_frame(const unsigned char *frame,
         move(cur_char_row, offset);
         for (cur_pixel_col=0;
              cur_pixel_col < trimmed_width;
-             cur_pixel_col += col_downscale_coef)
+             cur_pixel_col += col_downscale_coef)  // addch
             addch(get_char_given_intensity(get_region_intensity(frame,
                                                                 frame_width,
                                                                 cur_pixel_row, cur_pixel_col,
@@ -193,6 +186,7 @@ void draw_frame(const unsigned char *frame,
                                            char_set, max_char_set_index));
     }
     refresh();
+//    clear();
 }
 
 
@@ -286,7 +280,7 @@ int main(int argc, char *argv[]) {
 
     sprintf(command_buffer, "ffplay %s -hide_banner -loglevel error", filepath);
     popen(command_buffer, "r");
-
+    usleep(50000);
     unsigned int FRAME_WIDTH = 1280, FRAME_HEIGHT = 720;
     // obtaining an interface with ffmpeg
     if (reading_type == SOURCE_CAMERA) {
@@ -352,28 +346,31 @@ int main(int argc, char *argv[]) {
 
     uint64_t frame_timing_sleep = FRAME_TIMING_SLEEP;
 
-    ofxMSATimer();
 //    !(clock_gettime(CLOCK_MONOTONIC_RAW, &start)) &&
     uint64_t current_frame_number = 0;
     uint64_t total_elapsed_time;
     uint64_t sleep_time;
     uint64_t time_current_frame_number;
-    uint64_t frame_difference;
-
-
+    ofxMSATimer();
     while ((n_read_items = fread(frame, 1, TOTAL_READ_SIZE, pipein))) {
-        if (n_read_items < TOTAL_READ_SIZE) {
-            usleep(FRAME_TIMING_SLEEP - (getMicrosSinceLastCall()));
-            continue;
-        }
+//        if (n_read_items < TOTAL_READ_SIZE) {
+//            usleep(FRAME_TIMING_SLEEP - (getMicrosSinceLastCall()));
+//            continue;
+//        }
         draw_frame(frame, FRAME_WIDTH, FRAME_HEIGHT, char_set, max_char_set_index, grayscale_method);
 
         total_elapsed_time = getAppTimeMicros();
         sleep_time = frame_timing_sleep - (total_elapsed_time % frame_timing_sleep);
         time_current_frame_number = total_elapsed_time / frame_timing_sleep;
-        if ((frame_difference = time_current_frame_number - current_frame_number) > 0) {
-            fseek(pipein, TOTAL_READ_SIZE * frame_difference, SEEK_CUR);
+        printw("EL:%" PRIu64 "|FN:%" PRIu64 "|TFN:%" PRIu64,
+               total_elapsed_time, current_frame_number, time_current_frame_number);
+        refresh();
+
+        if ((time_current_frame_number > current_frame_number)) {
+            fseek(pipein, TOTAL_READ_SIZE * (time_current_frame_number - current_frame_number), SEEK_CUR);
             current_frame_number = time_current_frame_number;
+        } else if (time_current_frame_number < current_frame_number) {
+            continue;
         }
         usleep(sleep_time);
         ++current_frame_number;
