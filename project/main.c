@@ -331,8 +331,8 @@ int main(int argc, char *argv[]) {
     curs_set(0);
 
     uint64_t n_read_items;  // n bytes read from pipe
-    uint64_t current_frame_number = 0;
-    uint64_t next_frame_index;
+    uint64_t current_frame_index = 0;
+    uint64_t next_frame_index_measured_by_time;
 
     uint64_t total_elapsed_time;
     uint64_t frame_timing_sleep = FRAME_TIMING_SLEEP;
@@ -346,24 +346,26 @@ int main(int argc, char *argv[]) {
             usleep(sleep_time);
             continue;
         }
-        // main frames sync
+        ++current_frame_index;  // current_frame_index is incremented because of fread()
+        draw_frame(frame, FRAME_WIDTH, FRAME_HEIGHT, char_set, max_char_set_index, grayscale_method);
+
         total_elapsed_time = get_elapsed_time_from_start_micros();
         sleep_time = frame_timing_sleep - (total_elapsed_time % frame_timing_sleep);
-        next_frame_index = total_elapsed_time / frame_timing_sleep + (total_elapsed_time % frame_timing_sleep != 0);
+        next_frame_index_measured_by_time =  // ceil(total_elapsed_time / frame_timing_sleep)
+                total_elapsed_time / frame_timing_sleep + (total_elapsed_time % frame_timing_sleep != 0);
 
         // debug info
         // EL - elapsed time from start; FN - current Frame Number;
         // TFN - current Frame Number measured by elapsed time
         printw("\nFPS:%llf|EL:%" PRIu64 "|FN:%" PRIu64 "|TFN:%" PRIu64 "|TFN - FN:%" PRId64 "\n",
-                current_frame_number / ((long double) total_elapsed_time / N_MICROSECONDS_IN_ONE_SEC) , total_elapsed_time,
-                current_frame_number, next_frame_index, next_frame_index - current_frame_number);
+                current_frame_index / ((long double) total_elapsed_time / N_MICROSECONDS_IN_ONE_SEC) , total_elapsed_time,
+                current_frame_index, next_frame_index_measured_by_time, next_frame_index_measured_by_time - current_frame_index);
 
         usleep(sleep_time);
-        if (next_frame_index > current_frame_number) {
-            fseek(pipein, TOTAL_READ_SIZE * (next_frame_index - current_frame_number - 1), SEEK_CUR);
-            current_frame_number = next_frame_index;
+        if (next_frame_index_measured_by_time > current_frame_index) {
+            fseek(pipein, TOTAL_READ_SIZE * (next_frame_index_measured_by_time - current_frame_index), SEEK_CUR);
+            current_frame_index = next_frame_index_measured_by_time;
         }
-        draw_frame(frame, FRAME_WIDTH, FRAME_HEIGHT, char_set, max_char_set_index, grayscale_method);
     }
     getchar();
     free_space(frame, pipein);
