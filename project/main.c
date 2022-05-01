@@ -4,8 +4,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <stdlib.h>
-#include <errno.h>
-#define VIDEO_FRAMERATE 25
+#define VIDEO_FRAMERATE 50
 #define N_uSECONDS_IN_ONE_SEC 1000000
 #define FRAME_TIMING_SLEEP N_uSECONDS_IN_ONE_SEC / VIDEO_FRAMERATE
 #define COMMAND_BUFFER_SIZE 512
@@ -365,23 +364,27 @@ int main(int argc, char *argv[]) {
                 total_elapsed_time / frame_timing_sleep + (total_elapsed_time % frame_timing_sleep != 0);
         desynch = next_frame_index_measured_by_time - current_frame_index;
         // debug info
+        // EL uS    - elapsed time (in microseconds) from the start;
+        // EL S     - elapsed time (in seconds) from the start;
+        // FI       - current Frame Index;
+        // TFI      - current Frame Index measured by elapsed time;
         // uSPF     - micro (u) Seconds Per Frame (Canonical value);
         // Cur uSPF - micro (u) Seconds Per Frame (current);
         // Avg uSPF - micro (u) Seconds Per Frame (Avg);
         // FPS      - Frames Per Second;
-        // EL       - elapsed time from start;
-        // FI       - current Frame Index;
-        // TFI      - current Frame Index measured by elapsed time;
+
         sprintf(command_buffer,
-                "|uSPF:%8d|Cur uSPF:%8" PRIu64 "|Avg uSPF:%8" PRIu64 "|FPS:%8Lf|EL:%8" PRIu64 "|FI:%5" PRIu64 "|TFI:%5" PRIu64 "|TFI - FI:%2" PRId64,
+                "EL uS:%10" PRIu64 "|EL S:%8.2Lf|FI:%5" PRIu64 "|TFI:%5" PRIu64 "|TFI - FI:%2" PRId64
+                "|uSPF:%8d|Cur uSPF:%8" PRIu64 "|Avg uSPF:%8" PRIu64 "|FPS:%8Lf",
+                total_elapsed_time,
+                (long double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC,
+                current_frame_index,
+                next_frame_index_measured_by_time,
+                desynch,
                 FRAME_TIMING_SLEEP,
                 total_elapsed_time - last_total_elapsed_time,
                 usecs_per_frame,
-                current_frame_index / ((long double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC) ,
-                total_elapsed_time,
-                current_frame_index,
-                next_frame_index_measured_by_time,
-                desynch);
+                current_frame_index / ((long double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC));
         printw("\n%s\n", command_buffer);
 
         usleep(sleep_time);
