@@ -361,7 +361,7 @@ int main(int argc, char *argv[]) {
                 current_frame_number, next_frame_index, next_frame_index - current_frame_number);
 
         usleep(sleep_time);
-        if (next_frame_index >= current_frame_number) {
+        if (next_frame_index > current_frame_number) {
             fseek(pipein, TOTAL_READ_SIZE * (next_frame_index - current_frame_number), SEEK_CUR);
             current_frame_number = next_frame_index;
         }
