@@ -189,6 +189,7 @@ void close_pipe(FILE *pipeline) {
 void free_space(unsigned char *frame, FILE *pipeline, FILE *logs_file){
     free(frame);
     close_pipe(pipeline);
+    fflush(logs_file);
     fclose(logs_file);
     remove("PlayerStarted");
 }
@@ -332,7 +333,7 @@ int main(int argc, char *argv[]) {
     uint64_t current_frame_index = 0;
     uint64_t next_frame_index_measured_by_time;
 
-    uint64_t total_elapsed_time=0, elapsed_time_from_last_call=0;
+    uint64_t total_elapsed_time, last_total_elapsed_time;
     uint64_t frame_timing_sleep = FRAME_TIMING_SLEEP;  // uint64_t int division doesn't work with operand of other type
     uint64_t usecs_per_frame=0, sleep_time;
 
@@ -345,6 +346,7 @@ int main(int argc, char *argv[]) {
 //        usleep(10000);
     usleep(250000);
     set_timer();
+    total_elapsed_time = get_elapsed_time_from_start_us();
     while ((n_read_items = fread(frame, sizeof(char), TOTAL_READ_SIZE, pipein)) || !feof(pipein)) {
         if (n_read_items < TOTAL_READ_SIZE) {
             total_elapsed_time = get_elapsed_time_from_start_us();
@@ -355,6 +357,7 @@ int main(int argc, char *argv[]) {
         ++current_frame_index;  // current_frame_index is incremented because of fread()
         draw_frame(frame, FRAME_WIDTH, FRAME_HEIGHT, char_set, max_char_set_index, grayscale_method);
 
+        last_total_elapsed_time = total_elapsed_time;
         total_elapsed_time = get_elapsed_time_from_start_us();
         usecs_per_frame  = total_elapsed_time / current_frame_index + (total_elapsed_time % current_frame_index !=0);
         sleep_time = frame_timing_sleep - (total_elapsed_time % frame_timing_sleep);
@@ -362,22 +365,24 @@ int main(int argc, char *argv[]) {
                 total_elapsed_time / frame_timing_sleep + (total_elapsed_time % frame_timing_sleep != 0);
         // debug info
         // uSPF     - micro (u) Seconds Per Frame (Canonical value);
-        // Cur uSPF - micro (u) Seconds Per Frame (Current);
+        // Cur uSPF - micro (u) Seconds Per Frame (current);
+        // Avg uSPF - micro (u) Seconds Per Frame (Avg);
         // FPS      - Frames Per Second;
         // EL       - elapsed time from start;
         // FI       - current Frame Index;
         // TFI      - current Frame Index measured by elapsed time;
         sprintf(command_buffer,
-                "\nuSPF:%d|Cur uSPF:%" PRIu64 "|FPS:%Lf|EL:%" PRIu64 "|FI:%" PRIu64 "|TFI:%" PRIu64 "|TFI - FI:%" PRId64 "\n",
+                "|uSPF:%d|Cur uSPF:%" PRIu64 "|Avg uSPF:%" PRIu64 "|FPS:%Lf|EL:%" PRIu64 "|FI:%" PRIu64 "|TFI:%" PRIu64 "|TFI - FI:%" PRId64,
                 FRAME_TIMING_SLEEP,
+                total_elapsed_time - last_total_elapsed_time,
                 usecs_per_frame,
                 current_frame_index / ((long double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC) ,
                 total_elapsed_time,
                 current_frame_index,
                 next_frame_index_measured_by_time,
                 next_frame_index_measured_by_time - current_frame_index);
-        printw("%s", command_buffer);
-        fprintf(logs, "%s", command_buffer);
+        printw("\n%s\n", command_buffer);
+        fprintf(logs, "%s\n", command_buffer);
 
         usleep(sleep_time);
         if (next_frame_index_measured_by_time > current_frame_index) {
@@ -390,5 +395,6 @@ int main(int argc, char *argv[]) {
     getchar();
     free_space(frame, pipein, logs);
     endwin();
+    printf("END\n");
     return 0;
 }
