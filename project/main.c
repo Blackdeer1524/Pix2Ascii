@@ -338,6 +338,7 @@ int main(int argc, char *argv[]) {
     uint64_t frame_timing_sleep = FRAME_TIMING_SLEEP;
     uint64_t sleep_time;
 
+//    usleep(200000);
     set_timer();
     while ((n_read_items = fread(frame, sizeof(char), TOTAL_READ_SIZE, pipein)) || !feof(pipein)) {
         if (n_read_items < TOTAL_READ_SIZE) {
@@ -365,6 +366,8 @@ int main(int argc, char *argv[]) {
         if (next_frame_index_measured_by_time > current_frame_index) {
             fseek(pipein, TOTAL_READ_SIZE * (next_frame_index_measured_by_time - current_frame_index), SEEK_CUR);
             current_frame_index = next_frame_index_measured_by_time;
+        } else if (next_frame_index_measured_by_time < current_frame_index) {
+            usleep((current_frame_index - next_frame_index_measured_by_time) * FRAME_TIMING_SLEEP);
         }
     }
     getchar();
