@@ -340,6 +340,8 @@ int main(int argc, char *argv[]) {
     uint64_t frame_timing_sleep = FRAME_TIMING_SLEEP;  // uint64_t int division doesn't work with operand of other type
     uint64_t usecs_per_frame=0, sleep_time;
 
+    total_elapsed_time = get_elapsed_time_from_start_us();
+
     FILE *logs = fopen("Logs.txt", "w");
     // ==========
     if (reading_type == SOURCE_FILE) {
@@ -370,6 +372,7 @@ int main(int argc, char *argv[]) {
     }
     // ==========
     command_buffer[0] = '\0';
+
     set_timer();
     while ((n_read_items = fread(frame, sizeof(char), TOTAL_READ_SIZE, pipein)) || !feof(pipein)) {
         if (n_read_items < TOTAL_READ_SIZE) {
