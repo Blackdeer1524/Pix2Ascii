@@ -346,8 +346,6 @@ int main(int argc, char *argv[]) {
             usleep(sleep_time);
             continue;
         }
-        draw_frame(frame, FRAME_WIDTH, FRAME_HEIGHT, char_set, max_char_set_index, grayscale_method);
-
         // main frames sync
         total_elapsed_time = get_elapsed_time_from_start_micros();
         sleep_time = frame_timing_sleep - (total_elapsed_time % frame_timing_sleep);
@@ -362,9 +360,10 @@ int main(int argc, char *argv[]) {
 
         usleep(sleep_time);
         if (next_frame_index > current_frame_number) {
-            fseek(pipein, TOTAL_READ_SIZE * (next_frame_index - current_frame_number), SEEK_CUR);
+            fseek(pipein, TOTAL_READ_SIZE * (next_frame_index - current_frame_number - 1), SEEK_CUR);
             current_frame_number = next_frame_index;
         }
+        draw_frame(frame, FRAME_WIDTH, FRAME_HEIGHT, char_set, max_char_set_index, grayscale_method);
     }
     getchar();
     free_space(frame, pipein);
