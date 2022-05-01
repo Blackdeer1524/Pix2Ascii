@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <stdlib.h>
-
+#include <errno.h>
 #define VIDEO_FRAMERATE 25
 #define N_uSECONDS_IN_ONE_SEC 1000000
 #define FRAME_TIMING_SLEEP N_uSECONDS_IN_ONE_SEC / VIDEO_FRAMERATE
@@ -186,12 +186,12 @@ void close_pipe(FILE *pipeline) {
     pclose(pipeline);
 }
 
-void free_space(unsigned char *frame, FILE *pipeline, FILE *logs_file){
+void free_space(unsigned char *frame, FILE *or_source, FILE *pipeline, FILE *logs_file){
     free(frame);
+    close_pipe(or_source);
     close_pipe(pipeline);
     fflush(logs_file);
     fclose(logs_file);
-    remove("PlayerStarted");
 }
 
 #include <inttypes.h>
@@ -270,8 +270,8 @@ int main(int argc, char *argv[]) {
 
     char command_buffer[COMMAND_BUFFER_SIZE];
     int n_chars_printed = 0;
-    FILE *original_source = NULL;
     unsigned int FRAME_WIDTH = 1280, FRAME_HEIGHT = 720;
+    FILE *original_source = NULL;
     // obtaining an interface with ffmpeg
     if (reading_type == SOURCE_CAMERA) {
         n_chars_printed = sprintf(command_buffer, "ffmpeg -hide_banner -loglevel error "
@@ -279,6 +279,10 @@ int main(int argc, char *argv[]) {
                                                   "-vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -",
                                   VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
     } else if (reading_type == SOURCE_FILE) {
+        sprintf(command_buffer, "ffplay %s -hide_banner -loglevel error", filepath);
+        original_source = popen(command_buffer, "r");
+        usleep(250000);
+
         // obtaining input resolution
         n_chars_printed = sprintf(command_buffer, "ffprobe -v error -select_streams v:0 "
                                                   "-show_entries stream=width,height -of default=nw=1:nk=1 %s",
@@ -324,7 +328,7 @@ int main(int argc, char *argv[]) {
     }
 
     unsigned char *frame = malloc(sizeof(char) * FRAME_HEIGHT * FRAME_WIDTH * 3);
-    unsigned int TOTAL_READ_SIZE = (FRAME_WIDTH * FRAME_HEIGHT * 3);
+    uint64_t TOTAL_READ_SIZE = (FRAME_WIDTH * FRAME_HEIGHT * 3);
 
     initscr();
     curs_set(0);
@@ -332,19 +336,14 @@ int main(int argc, char *argv[]) {
     uint64_t n_read_items;  // n bytes read from pipe
     uint64_t current_frame_index = 0;
     uint64_t next_frame_index_measured_by_time;
+    int64_t desynch, i;
 
     uint64_t total_elapsed_time, last_total_elapsed_time;
     uint64_t frame_timing_sleep = FRAME_TIMING_SLEEP;  // uint64_t int division doesn't work with operand of other type
     uint64_t usecs_per_frame=0, sleep_time;
 
     FILE *logs = fopen("Logs.txt", "w");
-
-    remove("PlayerStarted");
-    sprintf(command_buffer, "FFREPORT=file=PlayerStarted:level=-8 ffplay %s -hide_banner -loglevel error", filepath);
-    original_source = popen(command_buffer, "r");
-//    while (access("PlayerStarted", R_OK))
-//        usleep(10000);
-    usleep(250000);
+    command_buffer[0] = '\0';
     set_timer();
     total_elapsed_time = get_elapsed_time_from_start_us();
     while ((n_read_items = fread(frame, sizeof(char), TOTAL_READ_SIZE, pipein)) || !feof(pipein)) {
@@ -356,6 +355,7 @@ int main(int argc, char *argv[]) {
         }
         ++current_frame_index;  // current_frame_index is incremented because of fread()
         draw_frame(frame, FRAME_WIDTH, FRAME_HEIGHT, char_set, max_char_set_index, grayscale_method);
+        fprintf(logs, "%s\n", command_buffer);
 
         last_total_elapsed_time = total_elapsed_time;
         total_elapsed_time = get_elapsed_time_from_start_us();
@@ -363,6 +363,7 @@ int main(int argc, char *argv[]) {
         sleep_time = frame_timing_sleep - (total_elapsed_time % frame_timing_sleep);
         next_frame_index_measured_by_time =  // ceil(total_elapsed_time / frame_timing_sleep)
                 total_elapsed_time / frame_timing_sleep + (total_elapsed_time % frame_timing_sleep != 0);
+        desynch = next_frame_index_measured_by_time - current_frame_index;
         // debug info
         // uSPF     - micro (u) Seconds Per Frame (Canonical value);
         // Cur uSPF - micro (u) Seconds Per Frame (current);
@@ -372,7 +373,7 @@ int main(int argc, char *argv[]) {
         // FI       - current Frame Index;
         // TFI      - current Frame Index measured by elapsed time;
         sprintf(command_buffer,
-                "|uSPF:%d|Cur uSPF:%" PRIu64 "|Avg uSPF:%" PRIu64 "|FPS:%Lf|EL:%" PRIu64 "|FI:%" PRIu64 "|TFI:%" PRIu64 "|TFI - FI:%" PRId64,
+                "|uSPF:%8d|Cur uSPF:%8" PRIu64 "|Avg uSPF:%8" PRIu64 "|FPS:%8Lf|EL:%8" PRIu64 "|FI:%5" PRIu64 "|TFI:%5" PRIu64 "|TFI - FI:%2" PRId64,
                 FRAME_TIMING_SLEEP,
                 total_elapsed_time - last_total_elapsed_time,
                 usecs_per_frame,
@@ -380,21 +381,21 @@ int main(int argc, char *argv[]) {
                 total_elapsed_time,
                 current_frame_index,
                 next_frame_index_measured_by_time,
-                next_frame_index_measured_by_time - current_frame_index);
+                desynch);
         printw("\n%s\n", command_buffer);
-        fprintf(logs, "%s\n", command_buffer);
 
         usleep(sleep_time);
         if (next_frame_index_measured_by_time > current_frame_index) {
-            fseek(pipein, TOTAL_READ_SIZE * (next_frame_index_measured_by_time - current_frame_index), SEEK_CUR);
+            for (i=0; i < desynch; ++i)
+                fread(frame, sizeof(char), TOTAL_READ_SIZE, pipein);
             current_frame_index = next_frame_index_measured_by_time;
         } else if (next_frame_index_measured_by_time < current_frame_index) {
             usleep((current_frame_index - next_frame_index_measured_by_time) * FRAME_TIMING_SLEEP);
         }
     }
     getchar();
-    free_space(frame, pipein, logs);
     endwin();
     printf("END\n");
+    free_space(frame, original_source, pipein, logs);
     return 0;
 }
