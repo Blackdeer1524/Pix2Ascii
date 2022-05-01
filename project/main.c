@@ -82,7 +82,7 @@ unsigned char average_chanel_intensity(const unsigned char *frame,
                                        unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
                                        unsigned long row_step, unsigned long col_step) {
     process_block(frame, frame_width, cur_pixel_row, cur_pixel_col,
-                                      row_step,      col_step);
+                  row_step,      col_step);
     return (rgb[0] + rgb[1] + rgb[2]) / (row_step * col_step * 3);
 }
 
@@ -142,8 +142,7 @@ void draw_frame(const unsigned char *frame,
                 region_intensity_t get_region_intensity) {
 
     static unsigned int new_n_available_rows, new_n_available_cols;
-    static unsigned int trimmed_height;
-    static unsigned int trimmed_width;
+    static unsigned int trimmed_height, trimmed_width;
     static unsigned int offset;
 
     getmaxyx(stdscr, new_n_available_rows, new_n_available_cols);
@@ -165,7 +164,7 @@ void draw_frame(const unsigned char *frame,
     for (cur_char_row=0, cur_pixel_row=0;
          cur_pixel_row < trimmed_height;
          ++cur_char_row,
-         cur_pixel_row += row_downscale_coef) {
+                 cur_pixel_row += row_downscale_coef) {
         move(cur_char_row, offset);
         for (cur_pixel_col=0;
              cur_pixel_col < trimmed_width;
@@ -278,10 +277,6 @@ int main(int argc, char *argv[]) {
                                                   "-vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -",
                                   VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
     } else if (reading_type == SOURCE_FILE) {
-        sprintf(command_buffer, "ffplay %s -hide_banner -loglevel error", filepath);
-        original_source = popen(command_buffer, "r");
-        usleep(250000);
-
         // obtaining input resolution
         n_chars_printed = sprintf(command_buffer, "ffprobe -v error -select_streams v:0 "
                                                   "-show_entries stream=width,height -of default=nw=1:nk=1 %s",
@@ -306,7 +301,6 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "Error obtaining input resolution! Width/height not found\n");
             return -1;
         }
-
         n_chars_printed = sprintf(command_buffer, "ffmpeg -i %s -f image2pipe -hide_banner -loglevel error "
                                                   "-vf fps=%d -vcodec rawvideo -pix_fmt rgb24 -",
                                   filepath, VIDEO_FRAMERATE);
@@ -341,10 +335,31 @@ int main(int argc, char *argv[]) {
     uint64_t frame_timing_sleep = FRAME_TIMING_SLEEP;  // uint64_t int division doesn't work with operand of other type
     uint64_t usecs_per_frame=0, sleep_time;
 
-    FILE *logs = fopen("Logs.txt", "w");
-    command_buffer[0] = '\0';
-    set_timer();
     total_elapsed_time = get_elapsed_time_from_start_us();
+
+    FILE *logs = fopen("Logs.txt", "w");
+
+    // ==========
+    FILE *a = fopen("StartIndicator", "w");
+    assert(a);
+    fclose(a);
+    sprintf(command_buffer, "FFREPORT=file=StartIndicator:level=32 ffplay %s -hide_banner -loglevel error -nostats -vf showinfo", filepath);
+    original_source = popen(command_buffer, "r");
+
+#include <sys/stat.h>
+#include <errno.h>
+    struct stat st;
+    while (1) {
+        stat("./StartIndicator", &st);
+        assert(errno == 0);
+        long t = st.st_size;
+        if ((t >= strlen(filepath)) && (t - strlen(filepath) * sizeof(char)) > 600)
+            break;
+    }
+    // ==========
+    command_buffer[0] = '\0';
+
+    set_timer();
     while ((n_read_items = fread(frame, sizeof(char), TOTAL_READ_SIZE, pipein)) || !feof(pipein)) {
         if (n_read_items < TOTAL_READ_SIZE) {
             total_elapsed_time = get_elapsed_time_from_start_us();
@@ -375,7 +390,7 @@ int main(int argc, char *argv[]) {
 
         sprintf(command_buffer,
                 "EL uS:%10" PRIu64 "|EL S:%8.2Lf|FI:%5" PRIu64 "|TFI:%5" PRIu64 "|TFI - FI:%2" PRId64
-                "|uSPF:%8d|Cur uSPF:%8" PRIu64 "|Avg uSPF:%8" PRIu64 "|FPS:%8Lf",
+        "|uSPF:%8d|Cur uSPF:%8" PRIu64 "|Avg uSPF:%8" PRIu64 "|FPS:%8Lf",
                 total_elapsed_time,
                 (long double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC,
                 current_frame_index,
