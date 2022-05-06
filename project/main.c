@@ -207,6 +207,7 @@ int main(int argc, char *argv[]) {
     t_char_set picked_char_set_type = CHARSET_OPTIMAL;
     region_intensity_t grayscale_method = average_chanel_intensity;
 
+    // argument parsing
     for (int i=1; i<argc;) {
         if (argv[i][0] != '-') {
             fprintf(stderr, "Invalid argument! Value is given without a corresponding flag!\n");
@@ -279,9 +280,7 @@ int main(int argc, char *argv[]) {
                                                   "-vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -",
                                   VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
     } else if (reading_type == SOURCE_FILE) {
-        // obtaining input resolution
-        // ffprobe -v error -select_streams v:0 -show_entries stream=width,height,r_frame_rate,display_aspect_ratio
-        // -of default=noprint_wrappers=1:nokey=1 ./Media/ricardo.mp4
+        // get input resolution command
         n_chars_printed = sprintf(command_buffer, "ffprobe -v error -select_streams v:0"
                                                   " -show_entries stream=width,height"
                                                   " -of default=noprint_wrappers=1:nokey=1 %s",
@@ -294,13 +293,12 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "Error obtaining input resolution! Query is too big!\n");
             return -1;
         }
-
         FILE *image_data_pipe = popen(command_buffer, "r");
         if (!image_data_pipe) {
             fprintf(stderr, "Error obtaining input resolution! Couldn't get an interface with ffprobe!\n");
             return -1;
         }
-
+        // reading input resolution
         if (fscanf(image_data_pipe, "%u %u", &FRAME_WIDTH, &FRAME_HEIGHT) != 2 ||
             fflush(image_data_pipe) || fclose(image_data_pipe)) {
             fprintf(stderr, "Error obtaining input resolution! Width/height not found\n");
@@ -319,8 +317,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    unsigned int FRAME_TIMING_SLEEP = N_uSECONDS_IN_ONE_SEC / VIDEO_FRAMERATE;
-
+    // sets up stream from where we read our RGB frames
     FILE *pipein = popen(command_buffer, "r");
     if (!pipein) {
         fprintf(stderr, "Error when obtaining data stream! Couldn't get an interface with ffmpeg!\n");
@@ -329,18 +326,34 @@ int main(int argc, char *argv[]) {
 
     unsigned char *rgb_data = malloc(sizeof(char) * FRAME_HEIGHT * FRAME_WIDTH * 3);
     uint64_t TOTAL_READ_SIZE = (FRAME_WIDTH * FRAME_HEIGHT * 3);
-    
+
     uint64_t n_read_items;  // n bytes read from pipe
     uint64_t prev_frame_index = 0, current_frame_index = 0;
     uint64_t next_frame_index_measured_by_time = 0;
     int64_t desync=0, i;
 
     uint64_t total_elapsed_time, last_total_elapsed_time=0;
-    uint64_t frame_timing_sleep = FRAME_TIMING_SLEEP;  // uint64_t int division doesn't work with operand of other type
+    uint64_t frame_timing_sleep = N_uSECONDS_IN_ONE_SEC / VIDEO_FRAMERATE;  // uint64_t int division doesn't work with operand of other type
     uint64_t usecs_per_frame=0, sleep_time;
-    
+
     FILE *logs = fopen("Logs.txt", "w");
     // aligning player and program output ====================
+    // We force ffplay (our video player) to write its log to a file called <StartIndicator>.
+    // It looks like this:
+
+    // ffplay started on 2022-05-06 at 21:39:01
+    //Report written to "StartIndicator"
+    //Log level: 32
+    //Command line:
+    //ffplay <filepath> -hide_banner -loglevel error -nostats -vf showinfo
+    //[Parsed_showinfo_0 @ 0x7fc458002f00] config in time_base: 1/1000, frame_rate: 30/1
+    //[Parsed_showinfo_0 @ 0x7fc458002f00] config out time_base: 0/0, frame_rate: 0/0
+    //[Parsed_showinfo_0 @ 0x7fc458002f00] n:   0 pts:      0 pts_time:0       pos:      ...
+    // ...
+
+    // When ffplay loads and starts to process video frames it logs it in the THIRD (check needed) line
+    // that starts with symbol '['. That symbol we are constantly looking for.
+
     FILE *original_source = NULL;
     if (reading_type == SOURCE_FILE) {
         FILE *ffplay_log_file = fopen("StartIndicator", "w");
@@ -369,7 +382,7 @@ int main(int argc, char *argv[]) {
     }
     // ==============================
     set_timer();
-    
+
     initscr();
     curs_set(0);
     total_elapsed_time = get_elapsed_time_from_start_us();
@@ -394,13 +407,13 @@ int main(int argc, char *argv[]) {
         // FPS      - Frames Per Second;
         sprintf(command_buffer,
                 "EL uS:%10" PRIu64 "|EL S:%8.2Lf|FI:%5" PRIu64 "|TFI:%5" PRIu64 "|TFI - FI:%2" PRId64
-                "|uSPF:%8d|Cur uSPF:%8" PRIu64 "|Avg uSPF:%8" PRIu64 "|FPS:%8Lf",
+        "|uSPF:%8" PRIu64 "|Cur uSPF:%8" PRIu64 "|Avg uSPF:%8" PRIu64 "|FPS:%8Lf",
                 total_elapsed_time,
                 (long double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC,
                 prev_frame_index,
                 next_frame_index_measured_by_time,
                 desync,
-                FRAME_TIMING_SLEEP,
+                frame_timing_sleep,
                 total_elapsed_time - last_total_elapsed_time,
                 usecs_per_frame,
                 current_frame_index / ((long double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC));
@@ -422,7 +435,7 @@ int main(int argc, char *argv[]) {
                 fread(rgb_data, sizeof(char), TOTAL_READ_SIZE, pipein);
             current_frame_index = next_frame_index_measured_by_time;
         } else if (desync < 0) {
-            usleep((current_frame_index - next_frame_index_measured_by_time) * FRAME_TIMING_SLEEP);
+            usleep((current_frame_index - next_frame_index_measured_by_time) * frame_timing_sleep);
         }
         usleep(sleep_time);
     }
