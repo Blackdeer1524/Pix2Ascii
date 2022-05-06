@@ -10,6 +10,7 @@
 
 #define N_uSECONDS_IN_ONE_SEC 1000000
 #define COMMAND_BUFFER_SIZE 512
+#define VIDEO_FRAMERATE 25
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
@@ -270,7 +271,7 @@ int main(int argc, char *argv[]) {
     char command_buffer[COMMAND_BUFFER_SIZE];
     int n_chars_printed;
 
-    unsigned int FRAME_WIDTH = 1280, FRAME_HEIGHT = 720, VIDEO_FRAMERATE = 25;
+    unsigned int FRAME_WIDTH = 1280, FRAME_HEIGHT = 720;
     FILE *original_source = NULL;
     // obtaining an interface with ffmpeg
     if (reading_type == SOURCE_CAMERA) {
@@ -283,7 +284,7 @@ int main(int argc, char *argv[]) {
         // ffprobe -v error -select_streams v:0 -show_entries stream=width,height,r_frame_rate,display_aspect_ratio
         // -of default=noprint_wrappers=1:nokey=1 ./Media/ricardo.mp4
         n_chars_printed = sprintf(command_buffer, "ffprobe -v error -select_streams v:0"
-                                                  " -show_entries stream=width,height,r_frame_rate"
+                                                  " -show_entries stream=width,height"
                                                   " -of default=noprint_wrappers=1:nokey=1 %s",
                                   filepath);
 
@@ -301,7 +302,7 @@ int main(int argc, char *argv[]) {
             return -1;
         }
 
-        if (fscanf(image_data_pipe, "%u %u %u", &FRAME_WIDTH, &FRAME_HEIGHT, &VIDEO_FRAMERATE) != 3 ||
+        if (fscanf(image_data_pipe, "%u %u", &FRAME_WIDTH, &FRAME_HEIGHT) != 2 ||
             fflush(image_data_pipe) || fclose(image_data_pipe)) {
             fprintf(stderr, "Error obtaining input resolution! Width/height not found\n");
             return -1;
@@ -395,7 +396,7 @@ int main(int argc, char *argv[]) {
                 "EL uS:%10" PRIu64 "|EL S:%8.2Lf|FI:%5" PRIu64 "|TFI:%5" PRIu64 "|TFI - FI:%2" PRId64
                 "|uSPF:%8d|Cur uSPF:%8" PRIu64 "|Avg uSPF:%8" PRIu64 "|FPS:%8Lf",
                 total_elapsed_time,
-                (long double) total_elapsed_ti?me / N_uSECONDS_IN_ONE_SEC,
+                (long double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC,
                 prev_frame_index,
                 next_frame_index_measured_by_time,
                 desync,
