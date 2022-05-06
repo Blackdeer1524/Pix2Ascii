@@ -346,17 +346,27 @@ int main(int argc, char *argv[]) {
         FILE *a = fopen("StartIndicator", "w");
         assert(a);
         fclose(a);
-        sprintf(command_buffer, "FFREPORT=file=StartIndicator:level=32 ffplay %s -hide_banner -loglevel error -nostats -vf showinfo", filepath);
+        //
+        sprintf(command_buffer, "FFREPORT=file=StartIndicator:level=32 "
+                                "ffplay %s -hide_banner -loglevel error -nostats -vf showinfo", filepath);
         original_source = popen(command_buffer, "r");
 
-        struct stat st;
-        while (1) {
-            stat("./StartIndicator", &st);
-            assert(errno == 0);
-            long t = st.st_size;
-            if ((t >= strlen(filepath)) && (t - strlen(filepath) * sizeof(char)) > 600)
-                break;
+        a = fopen("StartIndicator", "r");
+        char test;
+        int c = 0;
+        long int current_file_position = 0;
+
+        while (c < 3) {
+            if ((test = getc(a)) == EOF) {
+                current_file_position = ftell(a)-1;
+                fclose(a);
+                a = fopen("StartIndicator", "r");
+                fseek(a, current_file_position, SEEK_SET);
+            }
+            if (test == '[')
+                ++c;
         }
+        fclose(a);
     }
     // ==========
     command_buffer[0] = '\0';
@@ -382,7 +392,7 @@ int main(int argc, char *argv[]) {
         // FPS      - Frames Per Second;
         sprintf(command_buffer,
                 "EL uS:%10" PRIu64 "|EL S:%8.2Lf|FI:%5" PRIu64 "|TFI:%5" PRIu64 "|TFI - FI:%2" PRId64
-        "|uSPF:%8d|Cur uSPF:%8" PRIu64 "|Avg uSPF:%8" PRIu64 "|FPS:%8Lf",
+                "|uSPF:%8d|Cur uSPF:%8" PRIu64 "|Avg uSPF:%8" PRIu64 "|FPS:%8Lf",
                 total_elapsed_time,
                 (long double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC,
                 prev_frame_index,
