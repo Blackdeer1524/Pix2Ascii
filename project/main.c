@@ -24,7 +24,7 @@ static char_set_data char_sets[CHARSET_N] = {
         {"NBUa1|^` ", 8},
         {"N@#W$9876543210?!abc;:+=-,._ ", 28},
         {"$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. ", 69}
-}
+};
 
 char get_char_given_intensity(unsigned char intensity, const char *char_set, unsigned int max_index) {
     return char_set[max_index - intensity * max_index / 255];
