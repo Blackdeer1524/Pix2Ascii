@@ -272,7 +272,6 @@ int main(int argc, char *argv[]) {
     int n_chars_printed;
 
     unsigned int FRAME_WIDTH = 1280, FRAME_HEIGHT = 720;
-    FILE *original_source = NULL;
     // obtaining an interface with ffmpeg
     if (reading_type == SOURCE_CAMERA) {
         n_chars_printed = sprintf(command_buffer, "ffmpeg -hide_banner -loglevel error "
@@ -342,6 +341,7 @@ int main(int argc, char *argv[]) {
     
     FILE *logs = fopen("Logs.txt", "w");
     // aligning player and program output ====================
+    FILE *original_source = NULL;
     if (reading_type == SOURCE_FILE) {
         FILE *ffplay_log_file = fopen("StartIndicator", "w");
         assert(ffplay_log_file);
