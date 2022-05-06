@@ -94,8 +94,8 @@ unsigned char yuv_intensity(const unsigned char *frame,
                             unsigned long row_step, unsigned long col_step) {
     process_block(frame, frame_width, cur_pixel_row, cur_pixel_col,
                   row_step,      col_step);
-    double test = (rgb[0] * 0.299 + 0.587 * rgb[1] + 0.114 * rgb[2]) / (row_step * col_step * 3);
-    return (unsigned char) MIN(test, 255);
+    double current_block_intensity = (rgb[0] * 0.299 + 0.587 * rgb[1] + 0.114 * rgb[2]) / (row_step * col_step * 3);
+    return (unsigned char) MIN(current_block_intensity, 255);
 }
 
 // Timer =============================================
@@ -349,30 +349,29 @@ int main(int argc, char *argv[]) {
     FILE *logs = fopen("Logs.txt", "w");
     // ==========
     if (reading_type == SOURCE_FILE) {
-        FILE *a = fopen("StartIndicator", "w");
-        assert(a);
-        fclose(a);
-        //
+        FILE *ffplay_log_file = fopen("StartIndicator", "w");
+        assert(ffplay_log_file);
+        fclose(ffplay_log_file);
         sprintf(command_buffer, "FFREPORT=file=StartIndicator:level=32 "
                                 "ffplay %s -hide_banner -loglevel error -nostats -vf showinfo", filepath);
         original_source = popen(command_buffer, "r");
 
-        a = fopen("StartIndicator", "r");
-        char test;
-        int c = 0;
-        long int current_file_position = 0;
+        ffplay_log_file = fopen("StartIndicator", "r");
+        char current_file_char;
+        int n_bracket_encounters = 0;
+        long int current_file_position;
 
-        while (c < 3) {
-            if ((test = getc(a)) == EOF) {
-                current_file_position = ftell(a)-1;
-                fclose(a);
-                a = fopen("StartIndicator", "r");
-                fseek(a, current_file_position, SEEK_SET);
+        while (n_bracket_encounters < 3) {
+            if ((current_file_char = getc(ffplay_log_file)) == EOF) {
+                current_file_position = ftell(ffplay_log_file)-1;
+                fclose(ffplay_log_file);
+                ffplay_log_file = fopen("StartIndicator", "r");
+                fseek(ffplay_log_file, current_file_position, SEEK_SET);
             }
-            if (test == '[')
-                ++c;
+            else if (current_file_char == '[')
+                ++n_bracket_encounters;
         }
-        fclose(a);
+        fclose(ffplay_log_file);
     }
     // ==========
     command_buffer[0] = '\0';
