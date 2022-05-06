@@ -7,9 +7,7 @@
 #include <errno.h>
 #include <time.h>
 
-#define VIDEO_FRAMERATE 25
 #define N_uSECONDS_IN_ONE_SEC 1000000
-#define FRAME_TIMING_SLEEP N_uSECONDS_IN_ONE_SEC / VIDEO_FRAMERATE
 #define COMMAND_BUFFER_SIZE 512
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
@@ -273,7 +271,8 @@ int main(int argc, char *argv[]) {
 
     char command_buffer[COMMAND_BUFFER_SIZE];
     int n_chars_printed = 0;
-    unsigned int FRAME_WIDTH = 1280, FRAME_HEIGHT = 720;
+
+    unsigned int FRAME_WIDTH = 1280, FRAME_HEIGHT = 720, VIDEO_FRAMERATE = 25;
     FILE *original_source = NULL;
     // obtaining an interface with ffmpeg
     if (reading_type == SOURCE_CAMERA) {
@@ -283,8 +282,11 @@ int main(int argc, char *argv[]) {
                                   VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
     } else if (reading_type == SOURCE_FILE) {
         // obtaining input resolution
-        n_chars_printed = sprintf(command_buffer, "ffprobe -v error -select_streams v:0 "
-                                                  "-show_entries stream=width,height -of default=nw=1:nk=1 %s",
+        // ffprobe -v error -select_streams v:0 -show_entries stream=width,height,r_frame_rate,display_aspect_ratio
+        // -of default=noprint_wrappers=1:nokey=1 ./Media/ricardo.mp4
+        n_chars_printed = sprintf(command_buffer, "ffprobe -v error -select_streams v:0"
+                                                  " -show_entries stream=width,height,r_frame_rate"
+                                                  " -of default=noprint_wrappers=1:nokey=1 %s",
                                   filepath);
 
         if (n_chars_printed < 0) {
@@ -301,7 +303,7 @@ int main(int argc, char *argv[]) {
             return -1;
         }
 
-        if (fscanf(image_data_pipe, "%u %u", &FRAME_WIDTH, &FRAME_HEIGHT) != 2 ||
+        if (fscanf(image_data_pipe, "%u %u %u", &FRAME_WIDTH, &FRAME_HEIGHT, &VIDEO_FRAMERATE) != 3 ||
             fflush(image_data_pipe) || fclose(image_data_pipe)) {
             fprintf(stderr, "Error obtaining input resolution! Width/height not found\n");
             return -1;
@@ -318,6 +320,8 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Error preparing ffmpeg command! Query size is too big!\n");
         return -1;
     }
+
+    unsigned int FRAME_TIMING_SLEEP = N_uSECONDS_IN_ONE_SEC / VIDEO_FRAMERATE;
 
     FILE *pipein = popen(command_buffer, "r");
     if (!pipein) {
