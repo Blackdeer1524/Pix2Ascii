@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/stat.h>
-#include <errno.h>
+#include <assert.h>
 #include <time.h>
 
 #define N_uSECONDS_IN_ONE_SEC 1000000
@@ -13,7 +13,6 @@
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
-//
 typedef struct {
     char *char_set;
     unsigned int last_index;
@@ -25,9 +24,8 @@ static char_set_data char_sets[CHARSET_N] = {
         {"NBUa1|^` ", 8},
         {"N@#W$9876543210?!abc;:+=-,._ ", 28},
         {"$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. ", 69}
-};
+}
 
-#include <assert.h>
 char get_char_given_intensity(unsigned char intensity, const char *char_set, unsigned int max_index) {
     return char_set[max_index - intensity * max_index / 255];
 }
@@ -270,7 +268,7 @@ int main(int argc, char *argv[]) {
     unsigned int max_char_set_index = char_sets[picked_char_set_type].last_index;
 
     char command_buffer[COMMAND_BUFFER_SIZE];
-    int n_chars_printed = 0;
+    int n_chars_printed;
 
     unsigned int FRAME_WIDTH = 1280, FRAME_HEIGHT = 720, VIDEO_FRAMERATE = 25;
     FILE *original_source = NULL;
