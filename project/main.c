@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <assert.h>
 #include <time.h>
+#include <inttypes.h>
 
 #define N_uSECONDS_IN_ONE_SEC 1000000
 #define COMMAND_BUFFER_SIZE 512
@@ -31,13 +32,13 @@ char get_char_given_intensity(unsigned char intensity, const char *char_set, uns
 }
 
 
-typedef unsigned char (*region_intensity_t)(const unsigned char *frame,
+typedef unsigned char (*region_intensity_t)(const unsigned char *rgb_data,
                                             unsigned int frame_width,
                                             unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
                                             unsigned long row_step, unsigned long col_step);
 
 static unsigned int rgb[3];
-int process_block(const unsigned char *frame,
+int process_block(const unsigned char *rgb_data,
                   unsigned int frame_width,
                   unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
                   unsigned long row_step, unsigned long col_step){
@@ -66,9 +67,9 @@ int process_block(const unsigned char *frame,
         for (col_offset = triple_cur_pixel_col, j = cur_pixel_col;
              j < right_col;
              col_offset += 3, ++j) {
-            local_r += frame[row_offset + col_offset];
-            local_g += frame[row_offset + col_offset + 1];
-            local_b += frame[row_offset + col_offset + 2];
+            local_r += rgb_data[row_offset + col_offset];
+            local_g += rgb_data[row_offset + col_offset + 1];
+            local_b += rgb_data[row_offset + col_offset + 2];
         }
     }
     rgb[0] = local_r;
@@ -77,20 +78,20 @@ int process_block(const unsigned char *frame,
     return 0;
 }
 
-unsigned char average_chanel_intensity(const unsigned char *frame,
+unsigned char average_chanel_intensity(const unsigned char *rgb_data,
                                        unsigned int frame_width,
                                        unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
                                        unsigned long row_step, unsigned long col_step) {
-    process_block(frame, frame_width, cur_pixel_row, cur_pixel_col,
+    process_block(rgb_data, frame_width, cur_pixel_row, cur_pixel_col,
                   row_step,      col_step);
     return (rgb[0] + rgb[1] + rgb[2]) / (row_step * col_step * 3);
 }
 
-unsigned char yuv_intensity(const unsigned char *frame,
+unsigned char yuv_intensity(const unsigned char *rgb_data,
                             unsigned int frame_width,
                             unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
                             unsigned long row_step, unsigned long col_step) {
-    process_block(frame, frame_width, cur_pixel_row, cur_pixel_col,
+    process_block(rgb_data, frame_width, cur_pixel_row, cur_pixel_col,
                   row_step,      col_step);
     double current_block_intensity = (rgb[0] * 0.299 + 0.587 * rgb[1] + 0.114 * rgb[2]) / (row_step * col_step * 3);
     return (unsigned char) MIN(current_block_intensity, 255);
@@ -133,7 +134,7 @@ typedef enum {SOURCE_FILE, SOURCE_CAMERA} t_source;
 static unsigned int n_available_rows = 0, n_available_cols = 0;
 static unsigned int row_downscale_coef = 1, col_downscale_coef = 1;
 
-void draw_frame(const unsigned char *frame,
+void draw_frame(const unsigned char *rgb_data,
                 unsigned int frame_width,
                 unsigned int frame_height,
                 const char char_set[],
@@ -168,7 +169,7 @@ void draw_frame(const unsigned char *frame,
         for (cur_pixel_col=0;
              cur_pixel_col < trimmed_width;
              cur_pixel_col += col_downscale_coef)
-            addch(get_char_given_intensity(get_region_intensity(frame,
+            addch(get_char_given_intensity(get_region_intensity(rgb_data,
                                                                 frame_width,
                                                                 cur_pixel_row, cur_pixel_col,
                                                                 row_downscale_coef, col_downscale_coef),
@@ -183,15 +184,14 @@ void close_pipe(FILE *pipeline) {
     pclose(pipeline);
 }
 
-void free_space(unsigned char *frame, FILE *or_source, FILE *pipeline, FILE *logs_file){
-    free(frame);
+void free_space(unsigned char *rgb_data, FILE *or_source, FILE *pipeline, FILE *logs_file){
+    free(rgb_data);
     close_pipe(or_source);
     close_pipe(pipeline);
     fflush(logs_file);
     fclose(logs_file);
 }
 
-#include <inttypes.h>
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         fprintf(stderr, "Bad number of arguments!\n");
@@ -327,12 +327,9 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    unsigned char *frame = malloc(sizeof(char) * FRAME_HEIGHT * FRAME_WIDTH * 3);
+    unsigned char *rgb_data = malloc(sizeof(char) * FRAME_HEIGHT * FRAME_WIDTH * 3);
     uint64_t TOTAL_READ_SIZE = (FRAME_WIDTH * FRAME_HEIGHT * 3);
-
-    initscr();
-    curs_set(0);
-
+    
     uint64_t n_read_items;  // n bytes read from pipe
     uint64_t prev_frame_index = 0, current_frame_index = 0;
     uint64_t next_frame_index_measured_by_time = 0;
@@ -341,11 +338,9 @@ int main(int argc, char *argv[]) {
     uint64_t total_elapsed_time, last_total_elapsed_time=0;
     uint64_t frame_timing_sleep = FRAME_TIMING_SLEEP;  // uint64_t int division doesn't work with operand of other type
     uint64_t usecs_per_frame=0, sleep_time;
-
-    total_elapsed_time = get_elapsed_time_from_start_us();
-
+    
     FILE *logs = fopen("Logs.txt", "w");
-    // ==========
+    // aligning player and program output ====================
     if (reading_type == SOURCE_FILE) {
         FILE *ffplay_log_file = fopen("StartIndicator", "w");
         assert(ffplay_log_file);
@@ -371,11 +366,13 @@ int main(int argc, char *argv[]) {
         }
         fclose(ffplay_log_file);
     }
-    // ==========
-    command_buffer[0] = '\0';
-
+    // ==============================
     set_timer();
-    while ((n_read_items = fread(frame, sizeof(char), TOTAL_READ_SIZE, pipein)) || !feof(pipein)) {
+    
+    initscr();
+    curs_set(0);
+    total_elapsed_time = get_elapsed_time_from_start_us();
+    while ((n_read_items = fread(rgb_data, sizeof(char), TOTAL_READ_SIZE, pipein)) || !feof(pipein)) {
         if (n_read_items < TOTAL_READ_SIZE) {
             total_elapsed_time = get_elapsed_time_from_start_us();
             sleep_time = frame_timing_sleep - (total_elapsed_time % frame_timing_sleep);
@@ -383,7 +380,7 @@ int main(int argc, char *argv[]) {
             continue;
         }
         ++current_frame_index;  // current_frame_index is incremented because of fread()
-        draw_frame(frame, FRAME_WIDTH, FRAME_HEIGHT, char_set, max_char_set_index, grayscale_method);
+        draw_frame(rgb_data, FRAME_WIDTH, FRAME_HEIGHT, char_set, max_char_set_index, grayscale_method);
         // =============================================
         // debug info about PREVIOUS frame
         // EL uS    - elapsed time (in microseconds) from the start;
@@ -398,7 +395,7 @@ int main(int argc, char *argv[]) {
                 "EL uS:%10" PRIu64 "|EL S:%8.2Lf|FI:%5" PRIu64 "|TFI:%5" PRIu64 "|TFI - FI:%2" PRId64
                 "|uSPF:%8d|Cur uSPF:%8" PRIu64 "|Avg uSPF:%8" PRIu64 "|FPS:%8Lf",
                 total_elapsed_time,
-                (long double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC,
+                (long double) total_elapsed_ti?me / N_uSECONDS_IN_ONE_SEC,
                 prev_frame_index,
                 next_frame_index_measured_by_time,
                 desync,
@@ -419,11 +416,11 @@ int main(int argc, char *argv[]) {
                 total_elapsed_time / frame_timing_sleep + (total_elapsed_time % frame_timing_sleep != 0);
         desync = next_frame_index_measured_by_time - current_frame_index;
 
-        if (reading_type == SOURCE_FILE && next_frame_index_measured_by_time > current_frame_index) {
+        if (reading_type == SOURCE_FILE && desync > 0) {
             for (i=0; i < desync; ++i)
-                fread(frame, sizeof(char), TOTAL_READ_SIZE, pipein);
+                fread(rgb_data, sizeof(char), TOTAL_READ_SIZE, pipein);
             current_frame_index = next_frame_index_measured_by_time;
-        } else if (next_frame_index_measured_by_time < current_frame_index) {
+        } else if (desync < 0) {
             usleep((current_frame_index - next_frame_index_measured_by_time) * FRAME_TIMING_SLEEP);
         }
         usleep(sleep_time);
@@ -431,6 +428,6 @@ int main(int argc, char *argv[]) {
     getchar();
     endwin();
     printf("END\n");
-    free_space(frame, original_source, pipein, logs);
+    free_space(rgb_data, original_source, pipein, logs);
     return 0;
 }
