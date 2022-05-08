@@ -5,15 +5,15 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <assert.h>
-#include <time.h>
 #include <inttypes.h>
+#include <time.h>
 
-#define N_uSECONDS_IN_ONE_SEC 1000000
+#include "frame_utils.h"
+#include "timestamps.h"
+#include "utils.h"
+
 #define COMMAND_BUFFER_SIZE 512
 #define VIDEO_FRAMERATE 25
-
-#define MAX(x, y) (((x) > (y)) ? (x) : (y))
-#define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
 typedef struct {
     char *char_set;
@@ -28,165 +28,15 @@ static char_set_data char_sets[CHARSET_N] = {
         {"$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. ", 69}
 };
 
-char get_char_given_intensity(unsigned char intensity, const char *char_set, unsigned int max_index) {
-    return char_set[max_index - intensity * max_index / 255];
-}
-
-
-typedef unsigned char (*region_intensity_t)(const unsigned char *rgb_data,
-                                            unsigned int frame_width,
-                                            unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
-                                            unsigned long row_step, unsigned long col_step);
-
-static unsigned int rgb[3];
-int process_block(const unsigned char *rgb_data,
-                  unsigned int frame_width,
-                  unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
-                  unsigned long row_step, unsigned long col_step){
-    static unsigned int local_r, local_g, local_b;
-    local_r=0, local_g=0, local_b=0;
-
-    static unsigned int down_row, right_col;
-    down_row = cur_pixel_row + row_step;
-    right_col = cur_pixel_col + col_step;
-
-    static unsigned int cashed_frame_width;
-    static unsigned int triple_width;
-    if (!cashed_frame_width) {
-        triple_width = frame_width * 3;
-        cashed_frame_width = frame_width;
-    }
-
-    static unsigned int triple_cur_pixel_col;
-    triple_cur_pixel_col = cur_pixel_col * 3;
-
-    static unsigned int row_offset, col_offset;
-    static unsigned int i, j;
-    for (row_offset = triple_width * cur_pixel_row, i = cur_pixel_row;
-         i < down_row;
-         row_offset += triple_width, ++i) {
-        for (col_offset = triple_cur_pixel_col, j = cur_pixel_col;
-             j < right_col;
-             col_offset += 3, ++j) {
-            local_r += rgb_data[row_offset + col_offset];
-            local_g += rgb_data[row_offset + col_offset + 1];
-            local_b += rgb_data[row_offset + col_offset + 2];
-        }
-    }
-    rgb[0] = local_r;
-    rgb[1] = local_g;
-    rgb[2] = local_b;
-    return 0;
-}
-
-unsigned char average_chanel_intensity(const unsigned char *rgb_data,
-                                       unsigned int frame_width,
-                                       unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
-                                       unsigned long row_step, unsigned long col_step) {
-    process_block(rgb_data, frame_width, cur_pixel_row, cur_pixel_col,
-                  row_step,      col_step);
-    return (rgb[0] + rgb[1] + rgb[2]) / (row_step * col_step * 3);
-}
-
-unsigned char yuv_intensity(const unsigned char *rgb_data,
-                            unsigned int frame_width,
-                            unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
-                            unsigned long row_step, unsigned long col_step) {
-    process_block(rgb_data, frame_width, cur_pixel_row, cur_pixel_col,
-                  row_step,      col_step);
-    double current_block_intensity = (rgb[0] * 0.299 + 0.587 * rgb[1] + 0.114 * rgb[2]) / (row_step * col_step * 3);
-    return (unsigned char) MIN(current_block_intensity, 255);
-}
-
-// Timer =============================================
-typedef struct timespec timespec;
-timespec startTime;
-
-timespec diff(timespec *start, timespec *end) {
-    static timespec temp;
-    temp.tv_sec = end->tv_sec - start->tv_sec;
-    if ((end->tv_nsec < start->tv_nsec)) {
-        --temp.tv_sec;
-        temp.tv_nsec = N_uSECONDS_IN_ONE_SEC * 1000 + end->tv_nsec - start->tv_nsec;
-    } else {
-        temp.tv_nsec = end->tv_nsec - start->tv_nsec;
-    }
-    return temp;
-}
-
-// total time elapsed from start
-uint64_t get_elapsed_time_from_start_us(){
-    static timespec tmpTime, diffTime;
-    clock_gettime(CLOCK_MONOTONIC_COARSE, &tmpTime);
-    diffTime = diff(&startTime, &tmpTime);
-    return  ((uint64_t)diffTime.tv_sec * N_uSECONDS_IN_ONE_SEC * 1000 + (uint64_t)diffTime.tv_nsec) / 1000;
-}
-
-int set_timer() {
-    clock_gettime(CLOCK_MONOTONIC_COARSE, &startTime);
-    return 0;
-}
-
-// =============================================================
-
-
 typedef enum {SOURCE_FILE, SOURCE_CAMERA} t_source;
-
-static unsigned int n_available_rows = 0, n_available_cols = 0;
-static unsigned int row_downscale_coef = 1, col_downscale_coef = 1;
-
-void draw_frame(const unsigned char *rgb_data,
-                unsigned int frame_width,
-                unsigned int frame_height,
-                const char char_set[],
-                unsigned int max_char_set_index,
-                region_intensity_t get_region_intensity) {
-
-    static unsigned int new_n_available_rows, new_n_available_cols;
-    static unsigned int trimmed_height, trimmed_width;
-    static unsigned int offset;
-
-    getmaxyx(stdscr, new_n_available_rows, new_n_available_cols);
-    if (n_available_rows != new_n_available_rows ||
-        n_available_cols != new_n_available_cols) {
-        n_available_rows = new_n_available_rows;
-        n_available_cols = new_n_available_cols;
-        row_downscale_coef = MAX((frame_height + n_available_rows) / n_available_rows, 1);
-        col_downscale_coef = MAX((frame_width  + n_available_cols) / n_available_cols, 1);
-
-        trimmed_height = frame_height - frame_height % row_downscale_coef;
-        trimmed_width = frame_width - frame_width % col_downscale_coef;
-        offset = (n_available_cols - trimmed_width / col_downscale_coef) / 2;
-        clear();
-    }
-
-    static unsigned int cur_char_row;
-    static unsigned int cur_pixel_row, cur_pixel_col;
-    for (cur_char_row=0, cur_pixel_row=0;
-         cur_pixel_row < trimmed_height;
-         ++cur_char_row,
-                 cur_pixel_row += row_downscale_coef) {
-        move(cur_char_row, offset);
-        for (cur_pixel_col=0;
-             cur_pixel_col < trimmed_width;
-             cur_pixel_col += col_downscale_coef)
-            addch(get_char_given_intensity(get_region_intensity(rgb_data,
-                                                                frame_width,
-                                                                cur_pixel_row, cur_pixel_col,
-                                                                row_downscale_coef, col_downscale_coef),
-                                           char_set, max_char_set_index));
-    }
-    refresh();
-}
-
 
 void close_pipe(FILE *pipeline) {
     fflush(pipeline);
     pclose(pipeline);
 }
 
-void free_space(unsigned char *rgb_data, FILE *or_source, FILE *pipeline, FILE *logs_file){
-    free(rgb_data);
+void free_space(unsigned char *video_frame, FILE *or_source, FILE *pipeline, FILE *logs_file){
+    free(video_frame);
     close_pipe(or_source);
     close_pipe(pipeline);
     fflush(logs_file);
@@ -324,8 +174,16 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    unsigned char *rgb_data = malloc(sizeof(char) * FRAME_HEIGHT * FRAME_WIDTH * 3);
-    uint64_t TOTAL_READ_SIZE = (FRAME_WIDTH * FRAME_HEIGHT * 3);
+    uint64_t TOTAL_READ_SIZE = FRAME_WIDTH * FRAME_HEIGHT * 3;
+    unsigned char *video_frame = malloc(sizeof(char) * FRAME_WIDTH * FRAME_HEIGHT * 3);
+    // current terminal size in rows and cols
+    unsigned int n_available_rows = 0, n_available_cols = 0;
+    unsigned int new_n_available_rows, new_n_available_cols;
+
+    // video frame downsample coefficients
+    unsigned int row_downscale_coef = 1, col_downscale_coef = 1;
+    unsigned int trimmed_height, trimmed_width;
+    unsigned int left_border_indent;
 
     uint64_t n_read_items;  // n bytes read from pipe
     uint64_t prev_frame_index = 0, current_frame_index = 0;
@@ -333,11 +191,14 @@ int main(int argc, char *argv[]) {
     int64_t desync=0, i;
 
     uint64_t total_elapsed_time, last_total_elapsed_time=0;
-    uint64_t frame_timing_sleep = N_uSECONDS_IN_ONE_SEC / VIDEO_FRAMERATE;  // uint64_t int division doesn't work with operand of other type
+    // !uint64_t int division doesn't work with operand of other type!
+    uint64_t frame_timing_sleep = N_uSECONDS_IN_ONE_SEC / VIDEO_FRAMERATE;
     uint64_t usecs_per_frame=0, sleep_time;
 
     FILE *logs = fopen("Logs.txt", "w");
-    // aligning player and program output ====================
+
+    timespec startTime;
+    // ==================== aligning player and program output ====================
     // We force ffplay (our video player) to write its log to a file called <StartIndicator>.
     // It looks like this:
 
@@ -360,41 +221,59 @@ int main(int argc, char *argv[]) {
         assert(ffplay_log_file);
         fclose(ffplay_log_file);
         sprintf(command_buffer, "FFREPORT=file=StartIndicator:level=32 "
-                                "ffplay %s -hide_banner -loglevel error -nostats -vf showinfo", filepath);
+                                "ffplay %s -hide_banner -loglevel error -nostats -vf showinfo -framedrop", filepath);
         original_source = popen(command_buffer, "r");
 
         ffplay_log_file = fopen("StartIndicator", "r");
         char current_file_char;
         int n_bracket_encounters = 0;
-        long int current_file_position;
-
         while (n_bracket_encounters < 3) {
             if ((current_file_char = getc(ffplay_log_file)) == EOF) {
-                current_file_position = ftell(ffplay_log_file)-1;
+                long int current_file_position = ftell(ffplay_log_file)-1;
                 fclose(ffplay_log_file);
                 ffplay_log_file = fopen("StartIndicator", "r");
                 fseek(ffplay_log_file, current_file_position, SEEK_SET);
             }
-            else if (current_file_char == '[')
+            if (current_file_char == '[')
                 ++n_bracket_encounters;
         }
         fclose(ffplay_log_file);
     }
-    // ==============================
-    set_timer();
+    // ================================================================================
 
+    clock_gettime(CLOCK_MONOTONIC_COARSE, &startTime);
     initscr();
     curs_set(0);
-    total_elapsed_time = get_elapsed_time_from_start_us();
-    while ((n_read_items = fread(rgb_data, sizeof(char), TOTAL_READ_SIZE, pipein)) || !feof(pipein)) {
+    total_elapsed_time = get_elapsed_time_from_start_us(startTime);
+    while ((n_read_items = fread(video_frame, sizeof(char), TOTAL_READ_SIZE, pipein)) || !feof(pipein)) {
         if (n_read_items < TOTAL_READ_SIZE) {
-            total_elapsed_time = get_elapsed_time_from_start_us();
+            total_elapsed_time = get_elapsed_time_from_start_us(startTime);
             sleep_time = frame_timing_sleep - (total_elapsed_time % frame_timing_sleep);
             usleep(sleep_time);
             continue;
         }
         ++current_frame_index;  // current_frame_index is incremented because of fread()
-        draw_frame(rgb_data, FRAME_WIDTH, FRAME_HEIGHT, char_set, max_char_set_index, grayscale_method);
+
+        // terminal resize check
+        getmaxyx(stdscr, new_n_available_rows, new_n_available_cols);
+        if (n_available_rows != new_n_available_rows ||
+            n_available_cols != new_n_available_cols) {
+            n_available_rows = new_n_available_rows;
+            n_available_cols = new_n_available_cols;
+            row_downscale_coef = MAX((FRAME_HEIGHT + n_available_rows) / n_available_rows, 1);
+            col_downscale_coef = MAX((FRAME_WIDTH  + n_available_cols) / n_available_cols, 1);
+
+            trimmed_height = FRAME_HEIGHT - FRAME_HEIGHT % row_downscale_coef;
+            trimmed_width = FRAME_WIDTH - FRAME_WIDTH % col_downscale_coef;
+            left_border_indent = (n_available_cols - trimmed_width / col_downscale_coef) / 2;
+            clear();
+        }
+        // ASCII frame preparation
+        draw_frame(video_frame, FRAME_WIDTH, trimmed_height, trimmed_width, row_downscale_coef, col_downscale_coef,
+                   left_border_indent, char_set, max_char_set_index, grayscale_method);
+        // ASCII frame drawing
+        refresh();
+
         // =============================================
         // debug info about PREVIOUS frame
         // EL uS    - elapsed time (in microseconds) from the start;
@@ -423,7 +302,7 @@ int main(int argc, char *argv[]) {
 
         prev_frame_index = current_frame_index;
         last_total_elapsed_time = total_elapsed_time;
-        total_elapsed_time = get_elapsed_time_from_start_us();
+        total_elapsed_time = get_elapsed_time_from_start_us(startTime);
         usecs_per_frame  = total_elapsed_time / current_frame_index + (total_elapsed_time % current_frame_index !=0);
         sleep_time = frame_timing_sleep - (total_elapsed_time % frame_timing_sleep);
         next_frame_index_measured_by_time =  // ceil(total_elapsed_time / frame_timing_sleep)
@@ -432,7 +311,7 @@ int main(int argc, char *argv[]) {
 
         if (reading_type == SOURCE_FILE && desync > 0) {
             for (i=0; i < desync; ++i)
-                fread(rgb_data, sizeof(char), TOTAL_READ_SIZE, pipein);
+                fread(video_frame, sizeof(char), TOTAL_READ_SIZE, pipein);
             current_frame_index = next_frame_index_measured_by_time;
         } else if (desync < 0) {
             usleep((current_frame_index - next_frame_index_measured_by_time) * frame_timing_sleep);
@@ -442,6 +321,6 @@ int main(int argc, char *argv[]) {
     getchar();
     endwin();
     printf("END\n");
-    free_space(rgb_data, original_source, pipein, logs);
+    free_space(video_frame, original_source, pipein, logs);
     return 0;
 }
