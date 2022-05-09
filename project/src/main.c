@@ -252,8 +252,6 @@ int main(int argc, char *argv[]) {
             usleep(sleep_time);
             continue;
         }
-        ++current_frame_index;  // current_frame_index is incremented because of fread()
-
         // terminal resize check
         getmaxyx(stdscr, new_n_available_rows, new_n_available_cols);
         if (n_available_rows != new_n_available_rows ||
@@ -299,8 +297,8 @@ int main(int argc, char *argv[]) {
         printw("\n%s\n", command_buffer);
         fprintf(logs, "%s\n", command_buffer);
         // =============================================
-
         prev_frame_index = current_frame_index;
+        ++current_frame_index;  // current_frame_index is incremented because of fread()
         last_total_elapsed_time = total_elapsed_time;
         total_elapsed_time = get_elapsed_time_from_start_us(startTime);
         usecs_per_frame  = total_elapsed_time / current_frame_index + (total_elapsed_time % current_frame_index !=0);
