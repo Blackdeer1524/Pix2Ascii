@@ -252,6 +252,8 @@ int main(int argc, char *argv[]) {
             usleep(sleep_time);
             continue;
         }
+        ++current_frame_index;  // current_frame_index is incremented because of fread()
+
         // terminal resize check
         getmaxyx(stdscr, new_n_available_rows, new_n_available_cols);
         if (n_available_rows != new_n_available_rows ||
@@ -283,30 +285,29 @@ int main(int argc, char *argv[]) {
         // Avg uSPF - micro (u) Seconds Per Frame (Avg);
         // FPS      - Frames Per Second;
         sprintf(command_buffer,
-                "EL uS:%10" PRIu64 "|EL S:%8.2Lf|FI:%5" PRIu64 "|TFI:%5" PRIu64 "|TFI - FI:%2" PRId64
-        "|uSPF:%8" PRIu64 "|Cur uSPF:%8" PRIu64 "|Avg uSPF:%8" PRIu64 "|FPS:%8Lf",
+                "EL uS:%10" PRIu64 "|EL S:%8.2f|FI:%5" PRIu64 "|TFI:%5" PRIu64 "|TFI - FI:%2" PRId64
+                "|uSPF:%8" PRIu64 "|Cur uSPF:%8" PRIu64 "|Avg uSPF:%8" PRIu64 "|FPS:%8f",
                 total_elapsed_time,
-                (long double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC,
+                (double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC,
                 prev_frame_index,
                 next_frame_index_measured_by_time,
                 desync,
                 frame_timing_sleep,
                 total_elapsed_time - last_total_elapsed_time,
                 usecs_per_frame,
-                current_frame_index / ((long double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC));
+                prev_frame_index / ((double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC));
         printw("\n%s\n", command_buffer);
         fprintf(logs, "%s\n", command_buffer);
         // =============================================
-        prev_frame_index = current_frame_index;
-        ++current_frame_index;  // current_frame_index is incremented because of fread()
         last_total_elapsed_time = total_elapsed_time;
         total_elapsed_time = get_elapsed_time_from_start_us(startTime);
-        usecs_per_frame  = total_elapsed_time / current_frame_index + (total_elapsed_time % current_frame_index !=0);
+        usecs_per_frame  = total_elapsed_time / current_frame_index + (total_elapsed_time % current_frame_index != 0);
         sleep_time = frame_timing_sleep - (total_elapsed_time % frame_timing_sleep);
         next_frame_index_measured_by_time =  // ceil(total_elapsed_time / frame_timing_sleep)
                 total_elapsed_time / frame_timing_sleep + (total_elapsed_time % frame_timing_sleep != 0);
         desync = next_frame_index_measured_by_time - current_frame_index;
 
+        prev_frame_index = current_frame_index;
         if (reading_type == SOURCE_FILE && desync > 0) {
             for (i=0; i < desync; ++i)
                 fread(video_frame, sizeof(char), TOTAL_READ_SIZE, pipein);
