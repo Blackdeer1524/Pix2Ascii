@@ -49,9 +49,11 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-//    -c: camera
-//    -f "filepath"
-//    -color: char set to choose
+    // flags:
+    // -f <Media path>
+    // -c : (camera support)
+    // -color [sharp | optimal | standard | long] : ascii set
+    // -method [average | yuv] : grayscale conversion methods
     t_source reading_type = SOURCE_FILE;
     char *filepath = NULL;
     t_char_set picked_char_set_type = CHARSET_OPTIMAL;
@@ -86,7 +88,7 @@ int main(int argc, char *argv[]) {
                 picked_char_set_type = CHARSET_SHARP;
             } else if (!strcmp(argv[i + 1], "optimal")) {
                 picked_char_set_type = CHARSET_OPTIMAL;
-            } else if (!strcmp(argv[i + 1], "standart")) {
+            } else if (!strcmp(argv[i + 1], "standard")) {
                 picked_char_set_type = CHARSET_STANDART;
             } else if (!strcmp(argv[i + 1], "long")) {
                 picked_char_set_type = CHARSET_LONG;
@@ -209,10 +211,11 @@ int main(int argc, char *argv[]) {
     //ffplay <filepath> -hide_banner -loglevel error -nostats -vf showinfo
     //[Parsed_showinfo_0 @ 0x7fc458002f00] config in time_base: 1/1000, frame_rate: 30/1
     //[Parsed_showinfo_0 @ 0x7fc458002f00] config out time_base: 0/0, frame_rate: 0/0
-    //[Parsed_showinfo_0 @ 0x7fc458002f00] n:   0 pts:      0 pts_time:0       pos:      ...
-    // ...
+    //[Parsed_showinfo_0 @ 0x7fc458002f00] n:   0 pts:      0 pts_time:0       pos:      ...   <------ The line we
+    //  ...                                                                                            are looking for
+    //
 
-    // When ffplay loads and starts to process video frames it logs it in the THIRD (check needed) line
+    // When ffplay starts to process video frames it logs it in the THIRD line
     // that starts with symbol '['. That symbol we are constantly looking for.
 
     FILE *original_source = NULL;

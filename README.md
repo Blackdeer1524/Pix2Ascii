@@ -5,5 +5,7 @@ Simple Image to Ascii graphics converter written in C
 ![](https://raw.githubusercontent.com/Blackdeer1524/Pix2Ascii/master/Media/CurrentProjectState.gif)
 
 ## Requirements
+ * FFmpeg
  * ncurses     
- * video4linux (Camera support)
+ * [Optional] video4linux (Camera support)
+ 
