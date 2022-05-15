@@ -2,3 +2,5 @@
 !project
 !.gitignore
 !Media
+!Makefile
+!run_linters.sh
