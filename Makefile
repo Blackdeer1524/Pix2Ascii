@@ -22,4 +22,4 @@ $(TARGET): $(SRCS)
 	$(CC) -I $(HDRS) $(SRCS) -lncurses -o $(TARGET)
 
 clean:
-	rm -f $(TARGET) $(TST_TARGET) ${VALGRIND_LOG}
+	rm -f $(TARGET) Logs.txt StartIndicator
