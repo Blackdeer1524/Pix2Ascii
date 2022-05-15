@@ -1,5 +1,5 @@
-#ifndef PIX2ASCII_TIMESTAMPS_H
-#define PIX2ASCII_TIMESTAMPS_H
+#ifndef PROJECT_INCLUDE_TIMESTAMPS_H_
+#define PROJECT_INCLUDE_TIMESTAMPS_H_
 
 #include <time.h>
 #include <inttypes.h>
@@ -11,4 +11,4 @@ typedef struct timespec timespec;
 timespec diff(timespec *start, timespec *end);
 uint64_t get_elapsed_time_from_start_us(timespec startTime);
 
-#endif //PIX2ASCII_TIMESTAMPS_H
+#endif  // PROJECT_INCLUDE_TIMESTAMPS_H_

@@ -1,4 +1,5 @@
-#include "timestamps.h"
+#include "../include/timestamps.h"
+
 
 timespec diff(timespec *start, timespec *end) {
     static timespec temp;
@@ -14,9 +15,9 @@ timespec diff(timespec *start, timespec *end) {
 
 
 // total time elapsed from start
-uint64_t get_elapsed_time_from_start_us(timespec startTime){
+uint64_t get_elapsed_time_from_start_us(timespec startTime) {
     static timespec tmpTime, diffTime;
     clock_gettime(CLOCK_MONOTONIC_COARSE, &tmpTime);
     diffTime = diff(&startTime, &tmpTime);
-    return  ((uint64_t)diffTime.tv_sec * N_uSECONDS_IN_ONE_SEC * 1000 + (uint64_t)diffTime.tv_nsec) / 1000;
+    return  ((uint64_t) diffTime.tv_sec * N_uSECONDS_IN_ONE_SEC * 1000 + (uint64_t) diffTime.tv_nsec) / 1000;
 }

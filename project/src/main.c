@@ -5,12 +5,12 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <assert.h>
-#include <inttypes.h>
 #include <time.h>
+#include <inttypes.h>
 
-#include "frame_utils.h"
-#include "timestamps.h"
-#include "utils.h"
+#include "../include/frame_utils.h"
+#include "../include/timestamps.h"
+#include "../include/utils.h"
 
 #define COMMAND_BUFFER_SIZE 512
 #define VIDEO_FRAMERATE 25
@@ -42,7 +42,7 @@ void free_space(unsigned char *video_frame, FILE *or_source, FILE *pipeline, FIL
     fflush(logs_file);
     fclose(logs_file);
 }
-
+#include <limits.h>
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         fprintf(stderr, "Bad number of arguments!\n");
@@ -122,21 +122,23 @@ int main(int argc, char *argv[]) {
     unsigned int max_char_set_index = char_sets[picked_char_set_type].last_index;
 
     char command_buffer[COMMAND_BUFFER_SIZE];
-    int n_chars_printed;
+    int n_chars_printed = -1;
 
     unsigned int FRAME_WIDTH = 1280, FRAME_HEIGHT = 720;
     // obtaining an interface with ffmpeg
     if (reading_type == SOURCE_CAMERA) {
-        n_chars_printed = sprintf(command_buffer, "ffmpeg -hide_banner -loglevel error "
-                                                  "-f v4l2 -i /dev/video0 -f image2pipe "
-                                                  "-vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -",
-                                  VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
+        n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
+                                   "ffmpeg -hide_banner -loglevel error "
+                                   "-f v4l2 -i /dev/video0 -f image2pipe "
+                                   "-vf fps=%d -vf scale=%u:%u -vcodec rawvideo -pix_fmt rgb24 -",
+                                   VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
     } else if (reading_type == SOURCE_FILE) {
         // get input resolution command
-        n_chars_printed = sprintf(command_buffer, "ffprobe -v error -select_streams v:0"
-                                                  " -show_entries stream=width,height"
-                                                  " -of default=noprint_wrappers=1:nokey=1 %s",
-                                  filepath);
+        n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
+                                   "ffprobe -v error -select_streams v:0"
+                                   " -show_entries stream=width,height"
+                                   " -of default=noprint_wrappers=1:nokey=1 %s",
+                                   filepath);
 
         if (n_chars_printed < 0) {
             fprintf(stderr, "Error obtaining input resolution!\n");
@@ -156,9 +158,10 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "Error obtaining input resolution! Width/height not found\n");
             return -1;
         }
-        n_chars_printed = sprintf(command_buffer, "ffmpeg -i %s -f image2pipe -hide_banner -loglevel error "
-                                                  "-vf fps=%d -vcodec rawvideo -pix_fmt rgb24 -",
-                                  filepath, VIDEO_FRAMERATE);
+        n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
+                                   "ffmpeg -i %s -f image2pipe -hide_banner -loglevel error "
+                                   "-vf fps=%d -vcodec rawvideo -pix_fmt rgb24 -",
+                                   filepath, VIDEO_FRAMERATE);
     }
 
     if (n_chars_printed < 0) {
@@ -177,7 +180,7 @@ int main(int argc, char *argv[]) {
     }
 
     uint64_t TOTAL_READ_SIZE = FRAME_WIDTH * FRAME_HEIGHT * 3;
-    unsigned char *video_frame = malloc(sizeof(char) * FRAME_WIDTH * FRAME_HEIGHT * 3);
+    unsigned char *video_frame = malloc(sizeof(unsigned char) * FRAME_WIDTH * FRAME_HEIGHT * 3);
     // current terminal size in rows and cols
     unsigned int n_available_rows = 0, n_available_cols = 0;
     unsigned int new_n_available_rows, new_n_available_cols;
@@ -223,14 +226,15 @@ int main(int argc, char *argv[]) {
         FILE *ffplay_log_file = fopen("StartIndicator", "w");
         assert(ffplay_log_file);
         fclose(ffplay_log_file);
-        sprintf(command_buffer, "FFREPORT=file=StartIndicator:level=32 "
-                                "ffplay %s -hide_banner -loglevel error -nostats -vf showinfo -framedrop", filepath);
+        snprintf(command_buffer, COMMAND_BUFFER_SIZE,
+                 "FFREPORT=file=StartIndicator:level=32 "
+                 "ffplay %s -hide_banner -loglevel error -nostats -vf showinfo -framedrop", filepath);
         original_source = popen(command_buffer, "r");
 
         ffplay_log_file = fopen("StartIndicator", "r");
-        char current_file_char;
         int n_bracket_encounters = 0;
         while (n_bracket_encounters < 3) {
+            char current_file_char;
             if ((current_file_char = getc(ffplay_log_file)) == EOF) {
                 long int current_file_position = ftell(ffplay_log_file)-1;
                 fclose(ffplay_log_file);
@@ -287,18 +291,20 @@ int main(int argc, char *argv[]) {
         // Cur uSPF - micro (u) Seconds Per Frame (current);
         // Avg uSPF - micro (u) Seconds Per Frame (Avg);
         // FPS      - Frames Per Second;
-        sprintf(command_buffer,
-                "EL uS:%10" PRIu64 "|EL S:%8.2f|FI:%5" PRIu64 "|TFI:%5" PRIu64 "|TFI - FI:%2" PRId64
-                "|uSPF:%8" PRIu64 "|Cur uSPF:%8" PRIu64 "|Avg uSPF:%8" PRIu64 "|FPS:%8f",
-                total_elapsed_time,
-                (double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC,
-                prev_frame_index,
-                next_frame_index_measured_by_time,
-                desync,
-                frame_timing_sleep,
-                total_elapsed_time - last_total_elapsed_time,
-                usecs_per_frame,
-                prev_frame_index / ((double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC));
+
+        // "EL uS:%10llu|EL S:%8.2f|FI:%5llu|TFI:%5llu|TFI - FI:%2d|uSPF:%8llu|Cur uSPF:%8llu|Avg uSPF:%8llu|FPS:%8f"
+        snprintf(command_buffer, COMMAND_BUFFER_SIZE,
+                 "EL uS:%10" PRIu64 "|EL S:%8.2f|FI:%5" PRIu64 "|TFI:%5" PRIu64 "|TFI - FI:%2" PRId64
+                 "|uSPF:%8" PRIu64 "|Cur uSPF:%8" PRIu64 "|Avg uSPF:%8" PRIu64 "|FPS:%8f",
+                 total_elapsed_time,
+                 (double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC,
+                 prev_frame_index,
+                 next_frame_index_measured_by_time,
+                 desync,
+                 frame_timing_sleep,
+                 total_elapsed_time - last_total_elapsed_time,
+                 usecs_per_frame,
+                 prev_frame_index / ((double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC));
         printw("\n%s\n", command_buffer);
         fprintf(logs, "%s\n", command_buffer);
         // =============================================

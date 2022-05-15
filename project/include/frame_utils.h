@@ -1,5 +1,5 @@
-#ifndef PROJECT_FRAME_UTILS_H
-#define PROJECT_FRAME_UTILS_H
+#ifndef PROJECT_INCLUDE_FRAME_UTILS_H_
+#define PROJECT_INCLUDE_FRAME_UTILS_H_
 
 #include "utils.h"
 #include <ncurses.h>
@@ -33,4 +33,4 @@ void draw_frame(const unsigned char *video_frame,
 
 
 
-#endif //PROJECT_FRAME_UTILS_H
+#endif  // PROJECT_INCLUDE_FRAME_UTILS_H_

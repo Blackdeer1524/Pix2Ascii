@@ -1,14 +1,18 @@
-#include "frame_utils.h"
+#include "../include/frame_utils.h"
 
-static char get_char_given_intensity(unsigned char intensity, const char *char_set, unsigned int max_index) {
+static char get_char_given_intensity(unsigned char intensity,
+                                     const char *char_set,
+                                     unsigned int max_index) {
     return char_set[max_index - intensity * max_index / 255];
 }
 
 static int process_block(const unsigned char *video_frame,
-                  unsigned int frame_width,
-                  unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
-                  unsigned long row_step, unsigned long col_step,
-                  unsigned int *r, unsigned int *g, unsigned int *b){
+                         unsigned int frame_width,
+                         unsigned long cur_pixel_row,
+                         unsigned long cur_pixel_col,
+                         unsigned long row_step,
+                         unsigned long col_step,
+                         unsigned int *r, unsigned int *g, unsigned int *b) {
     static unsigned int local_r, local_g, local_b;
     local_r=0, local_g=0, local_b=0;
 
