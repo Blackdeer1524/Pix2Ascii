@@ -1,3 +1,6 @@
+CC = gcc
+CFLAGS= -std=gnu99 -Wall -Wpedantic -Wextra -Wvla
+
 TARGET = ./main.out
 HDRS = \
 	   project/include
@@ -19,7 +22,7 @@ build: $(TARGET)
 rebuild: clean build
 
 $(TARGET): $(SRCS)
-	$(CC) -I $(HDRS) $(SRCS) -lncurses -o $(TARGET)
+	$(CC) $(CFLAGS) -I $(HDRS) $(SRCS) -lncurses -o $(TARGET)
 
 clean:
 	rm -f $(TARGET) Logs.txt StartIndicator

@@ -7,17 +7,18 @@
 #include <assert.h>
 #include <time.h>
 #include <inttypes.h>
+#include <limits.h>
 
-#include "../include/frame_utils.h"
-#include "../include/timestamps.h"
-#include "../include/utils.h"
+#include "frame_utils.h"
+#include "timestamps.h"
+#include "utils.h"
 
 #define COMMAND_BUFFER_SIZE 512
 #define VIDEO_FRAMERATE 25
 
 typedef struct {
     char *char_set;
-    unsigned int last_index;
+    int last_index;
 } char_set_data;
 
 typedef enum {CHARSET_SHARP, CHARSET_OPTIMAL, CHARSET_STANDART, CHARSET_LONG, CHARSET_N} t_char_set;
@@ -42,7 +43,7 @@ void free_space(unsigned char *video_frame, FILE *or_source, FILE *pipeline, FIL
     fflush(logs_file);
     fclose(logs_file);
 }
-#include <limits.h>
+
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         fprintf(stderr, "Bad number of arguments!\n");
@@ -54,6 +55,7 @@ int main(int argc, char *argv[]) {
     // -c : (camera support)
     // -color [sharp | optimal | standard | long] : ascii set
     // -method [average | yuv] : grayscale conversion methods
+
     t_source reading_type = SOURCE_FILE;
     char *filepath = NULL;
     t_char_set picked_char_set_type = CHARSET_OPTIMAL;
@@ -119,18 +121,18 @@ int main(int argc, char *argv[]) {
     }
 
     char *char_set = char_sets[picked_char_set_type].char_set;
-    unsigned int max_char_set_index = char_sets[picked_char_set_type].last_index;
+    int max_char_set_index = char_sets[picked_char_set_type].last_index;
 
     char command_buffer[COMMAND_BUFFER_SIZE];
     int n_chars_printed = -1;
 
-    unsigned int FRAME_WIDTH = 1280, FRAME_HEIGHT = 720;
+    int FRAME_WIDTH = 1280, FRAME_HEIGHT = 720;
     // obtaining an interface with ffmpeg
     if (reading_type == SOURCE_CAMERA) {
         n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
                                    "ffmpeg -hide_banner -loglevel error "
                                    "-f v4l2 -i /dev/video0 -f image2pipe "
-                                   "-vf fps=%d -vf scale=%u:%u -vcodec rawvideo -pix_fmt rgb24 -",
+                                   "-vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -",
                                    VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
     } else if (reading_type == SOURCE_FILE) {
         // get input resolution command
@@ -153,7 +155,7 @@ int main(int argc, char *argv[]) {
             return -1;
         }
         // reading input resolution
-        if (fscanf(image_data_pipe, "%u %u", &FRAME_WIDTH, &FRAME_HEIGHT) != 2 ||
+        if (fscanf(image_data_pipe, "%d %d", &FRAME_WIDTH, &FRAME_HEIGHT) != 2 ||
             fflush(image_data_pipe) || fclose(image_data_pipe)) {
             fprintf(stderr, "Error obtaining input resolution! Width/height not found\n");
             return -1;
@@ -179,26 +181,26 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    uint64_t TOTAL_READ_SIZE = FRAME_WIDTH * FRAME_HEIGHT * 3;
+    size_t TOTAL_READ_SIZE = FRAME_WIDTH * FRAME_HEIGHT * 3;
     unsigned char *video_frame = malloc(sizeof(unsigned char) * FRAME_WIDTH * FRAME_HEIGHT * 3);
     // current terminal size in rows and cols
-    unsigned int n_available_rows = 0, n_available_cols = 0;
-    unsigned int new_n_available_rows, new_n_available_cols;
+    int n_available_rows = 0, n_available_cols = 0;
+    int new_n_available_rows, new_n_available_cols;
 
     // video frame downsample coefficients
-    unsigned int row_downscale_coef = 1, col_downscale_coef = 1;
-    unsigned int trimmed_height, trimmed_width;
-    unsigned int left_border_indent;
+    int row_downscale_coef = 1, col_downscale_coef = 1;
+    int trimmed_height, trimmed_width;
+    int left_border_indent;
 
-    uint64_t n_read_items;  // n bytes read from pipe
-    uint64_t prev_frame_index = 0, current_frame_index = 0;
-    uint64_t next_frame_index_measured_by_time = 0;
-    int64_t desync=0, i;
+    size_t n_read_items;  // n bytes read from pipe
+    size_t prev_frame_index = 0, current_frame_index = 0;
+    size_t next_frame_index_measured_by_time = 0;
+    long long int desync=0, i;
 
-    uint64_t total_elapsed_time, last_total_elapsed_time=0;
-    // !uint64_t int division doesn't work with operand of other type!
-    uint64_t frame_timing_sleep = N_uSECONDS_IN_ONE_SEC / VIDEO_FRAMERATE;
-    uint64_t usecs_per_frame=0, sleep_time;
+    size_t total_elapsed_time, last_total_elapsed_time=0;
+    // !size_t int division doesn't work with operand of other type!
+    size_t frame_timing_sleep = N_uSECONDS_IN_ONE_SEC / VIDEO_FRAMERATE;
+    size_t usecs_per_frame=0, sleep_time;
 
     FILE *logs = fopen("Logs.txt", "w");
 
@@ -267,8 +269,8 @@ int main(int argc, char *argv[]) {
             n_available_cols != new_n_available_cols) {
             n_available_rows = new_n_available_rows;
             n_available_cols = new_n_available_cols;
-            row_downscale_coef = MAX((FRAME_HEIGHT + n_available_rows) / n_available_rows, 1);
-            col_downscale_coef = MAX((FRAME_WIDTH  + n_available_cols) / n_available_cols, 1);
+            row_downscale_coef = MY_MAX((FRAME_HEIGHT + n_available_rows) / n_available_rows, 1);
+            col_downscale_coef = MY_MAX((FRAME_WIDTH  + n_available_cols) / n_available_cols, 1);
 
             trimmed_height = FRAME_HEIGHT - FRAME_HEIGHT % row_downscale_coef;
             trimmed_width = FRAME_WIDTH - FRAME_WIDTH % col_downscale_coef;
@@ -300,7 +302,7 @@ int main(int argc, char *argv[]) {
                  (double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC,
                  prev_frame_index,
                  next_frame_index_measured_by_time,
-                 desync,
+                 (long int) desync,
                  frame_timing_sleep,
                  total_elapsed_time - last_total_elapsed_time,
                  usecs_per_frame,
