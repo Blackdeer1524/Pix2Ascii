@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <time.h>
 #include <inttypes.h>
+#include <signal.h>
 
 #include "frame_utils.h"
 #include "timestamps.h"
@@ -40,6 +41,8 @@ void free_space(unsigned char *video_frame, FILE *or_source, FILE *pipeline, FIL
     fflush(logs_file);
     fclose(logs_file);
 }
+
+static void finish(int sig);
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
@@ -255,6 +258,7 @@ int main(int argc, char *argv[]) {
     initscr();
     curs_set(0);
     total_elapsed_time = get_elapsed_time_from_start_us(startTime);
+    (void) signal(SIGINT, finish);  // start handling signals
     while ((n_read_items = fread(video_frame, sizeof(char), TOTAL_READ_SIZE, pipein)) || !feof(pipein)) {
         if (n_read_items < TOTAL_READ_SIZE) {
             total_elapsed_time = get_elapsed_time_from_start_us(startTime);
@@ -307,7 +311,7 @@ int main(int argc, char *argv[]) {
                  frame_timing_sleep,
                  total_elapsed_time - last_total_elapsed_time,
                  usecs_per_frame,
-                 prev_frame_index / ((double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC));
+                 (double) prev_frame_index / ((double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC));
         printw("\n%s\n", command_buffer);
         fprintf(logs, "%s\n", command_buffer);
         // =============================================
@@ -334,4 +338,14 @@ int main(int argc, char *argv[]) {
     printf("END\n");
     free_space(video_frame, original_source, pipein, logs);
     return 0;
+}
+
+static void finish(int sig)
+{
+    getchar();
+    endwin();
+
+    printf("Terminated\n");
+
+    _exit(0);
 }
