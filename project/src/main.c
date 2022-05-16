@@ -56,10 +56,12 @@ int main(int argc, char *argv[]) {
     // -color [sharp | optimal | standard | long] : ascii set
     // -method [average | yuv] : grayscale conversion methods
 
+    frame_full_t frame_full;
+
     t_source reading_type = SOURCE_FILE;
     char *filepath = NULL;
     t_char_set picked_char_set_type = CHARSET_OPTIMAL;
-    region_intensity_t grayscale_method = average_chanel_intensity;
+    frame_full.get_region_intensity = average_chanel_intensity;
 
     // argument parsing
     for (int i=1; i<argc;) {
@@ -106,9 +108,9 @@ int main(int argc, char *argv[]) {
             }
 
             if (!strcmp(argv[i + 1], "average")) {
-                grayscale_method = average_chanel_intensity;
+                frame_full.get_region_intensity = average_chanel_intensity;
             } else if (!strcmp(argv[i + 1], "yuv")) {
-                grayscale_method = yuv_intensity;
+                frame_full.get_region_intensity = yuv_intensity;
             } else {
                 fprintf(stderr, "Invalid argument! Unsupported grayscale method!\n");
                 return -1;
@@ -120,8 +122,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    char *char_set = char_sets[picked_char_set_type].char_set;
-    int max_char_set_index = char_sets[picked_char_set_type].last_index;
+    frame_full.char_set = char_sets[picked_char_set_type].char_set;
+    frame_full.max_char_set_index = char_sets[picked_char_set_type].last_index;
 
     char command_buffer[COMMAND_BUFFER_SIZE];
     int n_chars_printed = -1;
@@ -182,15 +184,14 @@ int main(int argc, char *argv[]) {
     }
 
     size_t TOTAL_READ_SIZE = FRAME_WIDTH * FRAME_HEIGHT * 3;
-    unsigned char *video_frame = malloc(sizeof(unsigned char) * FRAME_WIDTH * FRAME_HEIGHT * 3);
+    frame_full.video_frame = malloc(sizeof(unsigned char) * FRAME_WIDTH * FRAME_HEIGHT * 3);
     // current terminal size in rows and cols
     int n_available_rows = 0, n_available_cols = 0;
     int new_n_available_rows, new_n_available_cols;
 
     // video frame downsample coefficients
-    int row_downscale_coef = 1, col_downscale_coef = 1;
-    int trimmed_height, trimmed_width;
-    int left_border_indent;
+    frame_full.row_downscale_coef = 1;
+    frame_full.col_downscale_coef = 1;
 
     size_t n_read_items;  // n bytes read from pipe
     size_t prev_frame_index = 0, current_frame_index = 0;
@@ -254,7 +255,7 @@ int main(int argc, char *argv[]) {
     initscr();
     curs_set(0);
     total_elapsed_time = get_elapsed_time_from_start_us(startTime);
-    while ((n_read_items = fread(video_frame, sizeof(char), TOTAL_READ_SIZE, pipein)) || !feof(pipein)) {
+    while ((n_read_items = fread(frame_full.video_frame, sizeof(char), TOTAL_READ_SIZE, pipein)) || !feof(pipein)) {
         if (n_read_items < TOTAL_READ_SIZE) {
             total_elapsed_time = get_elapsed_time_from_start_us(startTime);
             sleep_time = frame_timing_sleep - (total_elapsed_time % frame_timing_sleep);
@@ -269,17 +270,20 @@ int main(int argc, char *argv[]) {
             n_available_cols != new_n_available_cols) {
             n_available_rows = new_n_available_rows;
             n_available_cols = new_n_available_cols;
-            row_downscale_coef = MY_MAX((FRAME_HEIGHT + n_available_rows) / n_available_rows, 1);
-            col_downscale_coef = MY_MAX((FRAME_WIDTH  + n_available_cols) / n_available_cols, 1);
+            frame_full.row_downscale_coef = MY_MAX((FRAME_HEIGHT + n_available_rows) / n_available_rows, 1);
+            frame_full.col_downscale_coef = MY_MAX((FRAME_WIDTH  + n_available_cols) / n_available_cols, 1);
 
-            trimmed_height = FRAME_HEIGHT - FRAME_HEIGHT % row_downscale_coef;
-            trimmed_width = FRAME_WIDTH - FRAME_WIDTH % col_downscale_coef;
-            left_border_indent = (n_available_cols - trimmed_width / col_downscale_coef) / 2;
+            frame_full.trimmed_height = FRAME_HEIGHT - FRAME_HEIGHT % frame_full.row_downscale_coef;
+            frame_full.trimmed_width = FRAME_WIDTH - FRAME_WIDTH % frame_full.col_downscale_coef;
+            frame_full.left_border_indent = (n_available_cols - frame_full.trimmed_width / frame_full.col_downscale_coef) / 2;
             clear();
         }
         // ASCII frame preparation
-        draw_frame(video_frame, FRAME_WIDTH, trimmed_height, trimmed_width, row_downscale_coef, col_downscale_coef,
-                   left_border_indent, char_set, max_char_set_index, grayscale_method);
+        frame_full.frame_width = FRAME_WIDTH;
+        frame_full.frame_width = FRAME_WIDTH;
+        frame_full.frame_width = FRAME_WIDTH;
+        
+        draw_frame(frame_full);
         // ASCII frame drawing
         refresh();
 
@@ -321,7 +325,7 @@ int main(int argc, char *argv[]) {
         prev_frame_index = current_frame_index;
         if (reading_type == SOURCE_FILE && desync > 0) {
             for (i=0; i < desync; ++i)
-                fread(video_frame, sizeof(char), TOTAL_READ_SIZE, pipein);
+                fread(frame_full.video_frame, sizeof(char), TOTAL_READ_SIZE, pipein);
             current_frame_index = next_frame_index_measured_by_time;
         } else if (desync < 0) {
             usleep((current_frame_index - next_frame_index_measured_by_time) * frame_timing_sleep);
@@ -331,6 +335,6 @@ int main(int argc, char *argv[]) {
     getchar();
     endwin();
     printf("END\n");
-    free_space(video_frame, original_source, pipein, logs);
+    free_space(frame_full.video_frame, original_source, pipein, logs);
     return 0;
 }
