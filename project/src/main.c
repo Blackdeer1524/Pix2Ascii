@@ -3,14 +3,12 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <sys/stat.h>
 #include <assert.h>
 #include <time.h>
 #include <inttypes.h>
 
-#include "../include/frame_utils.h"
-#include "../include/timestamps.h"
-#include "../include/utils.h"
+#include "frame_utils.h"
+#include "timestamps.h"
 
 #define COMMAND_BUFFER_SIZE 512
 #define VIDEO_FRAMERATE 25

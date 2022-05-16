@@ -1,4 +1,4 @@
-#include "../include/frame_utils.h"
+#include "frame_utils.h"
 
 static char get_char_given_intensity(unsigned char intensity,
                                      const char *char_set,
