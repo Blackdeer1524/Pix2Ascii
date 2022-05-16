@@ -54,7 +54,9 @@ int main(int argc, char *argv[]) {
     // -c : (camera support)
     // -color [sharp | optimal | standard | long] : ascii set
     // -method [average | yuv] : grayscale conversion methods
+    // -s : run simultaneously with source media
     t_source reading_type = SOURCE_FILE;
+    bool source_flag = false;  // if true then run with source file
     char *filepath = NULL;
     t_char_set picked_char_set_type = CHARSET_OPTIMAL;
     region_intensity_t grayscale_method = average_chanel_intensity;
@@ -112,6 +114,8 @@ int main(int argc, char *argv[]) {
                 return -1;
             }
             i += 2;
+        } else if (!strcmp(&argv[i][1], "s")) {
+            source_flag = !source_flag;
         } else {
             fprintf(stderr, "Unknown flag!\n");
             return -1;
@@ -222,7 +226,7 @@ int main(int argc, char *argv[]) {
     // that starts with symbol '['. That symbol we are constantly looking for.
 
     FILE *original_source = NULL;
-    if (reading_type == SOURCE_FILE) {
+    if (reading_type == SOURCE_FILE && source_flag == true) {
         FILE *ffplay_log_file = fopen("StartIndicator", "w");
         assert(ffplay_log_file);
         fclose(ffplay_log_file);
