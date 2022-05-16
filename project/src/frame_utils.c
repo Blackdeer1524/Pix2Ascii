@@ -14,7 +14,7 @@ static int process_block(const unsigned char *video_frame,
                          unsigned long col_step,
                          unsigned int *r, unsigned int *g, unsigned int *b) {
     static unsigned int local_r, local_g, local_b;
-    local_r=0, local_g=0, local_b=0;
+    local_r = 0, local_g = 0, local_b = 0;
 
     static unsigned int down_row, right_col;
     down_row = cur_pixel_row + row_step;
@@ -82,7 +82,6 @@ void draw_frame(const unsigned char *video_frame,
                 const char char_set[],
                 unsigned int max_char_set_index,
                 region_intensity_t get_region_intensity) {
-
     for (unsigned int cur_char_row=0, cur_pixel_row=0;
          cur_pixel_row < trimmed_height;
          ++cur_char_row, cur_pixel_row += row_downscale_coef) {

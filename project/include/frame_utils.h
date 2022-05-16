@@ -1,8 +1,9 @@
 #ifndef PROJECT_INCLUDE_FRAME_UTILS_H_
 #define PROJECT_INCLUDE_FRAME_UTILS_H_
 
-#include "utils.h"
 #include <ncurses.h>
+
+#include "utils.h"
 
 unsigned char average_chanel_intensity(const unsigned char *video_frame,
                                        unsigned int frame_width,

@@ -35,14 +35,14 @@ void close_pipe(FILE *pipeline) {
     pclose(pipeline);
 }
 
-void free_space(unsigned char *video_frame, FILE *or_source, FILE *pipeline, FILE *logs_file){
+void free_space(unsigned char *video_frame, FILE *or_source, FILE *pipeline, FILE *logs_file) {
     free(video_frame);
     close_pipe(or_source);
     close_pipe(pipeline);
     fflush(logs_file);
     fclose(logs_file);
 }
-#include <limits.h>
+
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         fprintf(stderr, "Bad number of arguments!\n");
@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
     region_intensity_t grayscale_method = average_chanel_intensity;
 
     // argument parsing
-    for (int i=1; i<argc;) {
+    for (int i = 1; i < argc;) {
         if (argv[i][0] != '-') {
             fprintf(stderr, "Invalid argument! Value is given without a corresponding flag!\n");
             return -1;
@@ -116,6 +116,7 @@ int main(int argc, char *argv[]) {
             i += 2;
         } else if (!strcmp(&argv[i][1], "s")) {
             source_flag = !source_flag;
+            ++i;
         } else {
             fprintf(stderr, "Unknown flag!\n");
             return -1;
@@ -197,12 +198,12 @@ int main(int argc, char *argv[]) {
     uint64_t n_read_items;  // n bytes read from pipe
     uint64_t prev_frame_index = 0, current_frame_index = 0;
     uint64_t next_frame_index_measured_by_time = 0;
-    int64_t desync=0, i;
+    int64_t desync = 0, i;
 
-    uint64_t total_elapsed_time, last_total_elapsed_time=0;
+    uint64_t total_elapsed_time, last_total_elapsed_time = 0;
     // !uint64_t int division doesn't work with operand of other type!
     uint64_t frame_timing_sleep = N_uSECONDS_IN_ONE_SEC / VIDEO_FRAMERATE;
-    uint64_t usecs_per_frame=0, sleep_time;
+    uint64_t usecs_per_frame = 0, sleep_time;
 
     FILE *logs = fopen("Logs.txt", "w");
 
@@ -212,13 +213,13 @@ int main(int argc, char *argv[]) {
     // It looks like this:
 
     // ffplay started on 2022-05-06 at 21:39:01
-    //Report written to "StartIndicator"
-    //Log level: 32
-    //Command line:
-    //ffplay <filepath> -hide_banner -loglevel error -nostats -vf showinfo
-    //[Parsed_showinfo_0 @ 0x7fc458002f00] config in time_base: 1/1000, frame_rate: 30/1
-    //[Parsed_showinfo_0 @ 0x7fc458002f00] config out time_base: 0/0, frame_rate: 0/0
-    //[Parsed_showinfo_0 @ 0x7fc458002f00] n:   0 pts:      0 pts_time:0       pos:      ...   <------ The line we
+    // Report written to "StartIndicator"
+    // Log level: 32
+    // Command line:
+    // ffplay <filepath> -hide_banner -loglevel error -nostats -vf showinfo
+    // [Parsed_showinfo_0 @ 0x7fc458002f00] config in time_base: 1/1000, frame_rate: 30/1
+    // [Parsed_showinfo_0 @ 0x7fc458002f00] config out time_base: 0/0, frame_rate: 0/0
+    // [Parsed_showinfo_0 @ 0x7fc458002f00] n:   0 pts:      0 pts_time:0       pos:      ...   <------ The line we
     //  ...                                                                                            are looking for
     //
 

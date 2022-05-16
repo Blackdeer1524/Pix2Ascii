@@ -28,6 +28,6 @@ print_header "RUN clang-tidy"
 check_log "clang-tidy project/src/* project/include/* -warnings-as-errors=* -extra-arg=-std=gnu99 -- -Iproject/include" "Error (?:reading|while processing)"
 
 print_header "RUN cpplint"
-check_log "cpplint --linelength 120 --filter=-legal/copyright project/include/* project/src/* " "Can't open for reading"
+check_log "cpplint --linelength 120 --filter=-legal/copyright,-build/include_subdir,-readability/casting,-runtime/int project/include/* project/src/* " "Can't open for reading"
 
 print_header "SUCCESS"
