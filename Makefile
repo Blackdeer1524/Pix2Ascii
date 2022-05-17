@@ -5,7 +5,9 @@ HDRS = \
 SRCS = \
 	   project/src/main.c \
 	   project/src/frame_utils.c \
-	   project/src/timestamps.c
+	   project/src/timestamps.c \
+	   project/src/argparsing.c \
+	   project/src/video_stream.c
 
 .PHONY: all check build rebuild clean
 

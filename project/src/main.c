@@ -7,10 +7,14 @@
 #include <assert.h>
 #include <time.h>
 #include <inttypes.h>
+#include <limits.h>
 
+#include "../include/struct.h"
+#include "../include/video_stream.h"
 #include "../include/frame_utils.h"
 #include "../include/timestamps.h"
 #include "../include/utils.h"
+#include "../include/argparsing.h"
 
 #define COMMAND_BUFFER_SIZE 512
 #define VIDEO_FRAMERATE 25
@@ -54,133 +58,154 @@ int main(int argc, char *argv[]) {
     // -c : (camera support)
     // -color [sharp | optimal | standard | long] : ascii set
     // -method [average | yuv] : grayscale conversion methods
-    t_source reading_type = SOURCE_FILE;
-    char *filepath = NULL;
-    t_char_set picked_char_set_type = CHARSET_OPTIMAL;
-    region_intensity_t grayscale_method = average_chanel_intensity;
-
-    // argument parsing
-    for (int i=1; i<argc;) {
-        if (argv[i][0] != '-') {
-            fprintf(stderr, "Invalid argument! Value is given without a corresponding flag!\n");
-            return -1;
-        }
-
-        if (!strcmp(&argv[i][1], "c")) {
-            reading_type = SOURCE_CAMERA;
-            ++i;
-        } else if (!strcmp(&argv[i][1], "f")) {
-            if (i == argc - 1 || argv[i + 1][0] == '-') {
-                fprintf(stderr, "Invalid argument! Filepath is not given!\n");
-                return -1;
-            } else {
-                reading_type = SOURCE_FILE;
-                filepath = argv[i + 1];
-                i += 2;
-            }
-        } else if (!strcmp(&argv[i][1], "color")) {
-            if (i == argc - 1 || argv[i + 1][0] == '-') {
-                fprintf(stderr, "Invalid argument! Color scheme is not given!\n");
-                return -1;
-            }
-
-            if (!strcmp(argv[i + 1], "sharp")) {
-                picked_char_set_type = CHARSET_SHARP;
-            } else if (!strcmp(argv[i + 1], "optimal")) {
-                picked_char_set_type = CHARSET_OPTIMAL;
-            } else if (!strcmp(argv[i + 1], "standard")) {
-                picked_char_set_type = CHARSET_STANDART;
-            } else if (!strcmp(argv[i + 1], "long")) {
-                picked_char_set_type = CHARSET_LONG;
-            } else {
-                fprintf(stderr, "Invalid argument! Unsupported scheme!\n");
-                return -1;
-            }
-            i += 2;
-        } else if (!strcmp(&argv[i][1], "method")) {
-            if (i == argc - 1 || argv[i + 1][0] == '-') {
-                fprintf(stderr, "Invalid argument! Color scheme is not given!\n");
-                return -1;
-            }
-
-            if (!strcmp(argv[i + 1], "average")) {
-                grayscale_method = average_chanel_intensity;
-            } else if (!strcmp(argv[i + 1], "yuv")) {
-                grayscale_method = yuv_intensity;
-            } else {
-                fprintf(stderr, "Invalid argument! Unsupported grayscale method!\n");
-                return -1;
-            }
-            i += 2;
-        } else {
-            fprintf(stderr, "Unknown flag!\n");
-            return -1;
-        }
-    }
-
-    char *char_set = char_sets[picked_char_set_type].char_set;
-    unsigned int max_char_set_index = char_sets[picked_char_set_type].last_index;
-
-    char command_buffer[COMMAND_BUFFER_SIZE];
-    int n_chars_printed = -1;
-
-    unsigned int FRAME_WIDTH = 1280, FRAME_HEIGHT = 720;
-    // obtaining an interface with ffmpeg
-    if (reading_type == SOURCE_CAMERA) {
-        n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
-                                   "ffmpeg -hide_banner -loglevel error "
-                                   "-f v4l2 -i /dev/video0 -f image2pipe "
-                                   "-vf fps=%d -vf scale=%u:%u -vcodec rawvideo -pix_fmt rgb24 -",
-                                   VIDEO_FRAMERATE, FRAME_WIDTH, FRAME_HEIGHT);
-    } else if (reading_type == SOURCE_FILE) {
-        // get input resolution command
-        n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
-                                   "ffprobe -v error -select_streams v:0"
-                                   " -show_entries stream=width,height"
-                                   " -of default=noprint_wrappers=1:nokey=1 %s",
-                                   filepath);
-
-        if (n_chars_printed < 0) {
-            fprintf(stderr, "Error obtaining input resolution!\n");
-            return -1;
-        } else if (n_chars_printed >= COMMAND_BUFFER_SIZE) {
-            fprintf(stderr, "Error obtaining input resolution! Query is too big!\n");
-            return -1;
-        }
-        FILE *image_data_pipe = popen(command_buffer, "r");
-        if (!image_data_pipe) {
-            fprintf(stderr, "Error obtaining input resolution! Couldn't get an interface with ffprobe!\n");
-            return -1;
-        }
-        // reading input resolution
-        if (fscanf(image_data_pipe, "%u %u", &FRAME_WIDTH, &FRAME_HEIGHT) != 2 ||
-            fflush(image_data_pipe) || fclose(image_data_pipe)) {
-            fprintf(stderr, "Error obtaining input resolution! Width/height not found\n");
-            return -1;
-        }
-        n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
-                                   "ffmpeg -i %s -f image2pipe -hide_banner -loglevel error "
-                                   "-vf fps=%d -vcodec rawvideo -pix_fmt rgb24 -",
-                                   filepath, VIDEO_FRAMERATE);
-    }
-
-    if (n_chars_printed < 0) {
-        fprintf(stderr, "Error preparing ffmpeg command!\n");
-        return -1;
-    } else if (n_chars_printed >= COMMAND_BUFFER_SIZE) {
-        fprintf(stderr, "Error preparing ffmpeg command! Query size is too big!\n");
+//    t_source reading_type = SOURCE_FILE;
+//    char *filepath = NULL;
+//    t_char_set picked_char_set_type = CHARSET_OPTIMAL;
+//    region_intensity_t grayscale_method = average_chanel_intensity;
+//
+//    // argument parsing
+//    for (int i=1; i<argc;) {
+//        if (argv[i][0] != '-') {
+//            fprintf(stderr, "Invalid argument! Value is given without a corresponding flag!\n");
+//            return -1;
+//        }
+//
+//        if (!strcmp(&argv[i][1], "c")) {
+//            reading_type = SOURCE_CAMERA;
+//            ++i;
+//        } else if (!strcmp(&argv[i][1], "f")) {
+//            if (i == argc - 1 || argv[i + 1][0] == '-') {
+//                fprintf(stderr, "Invalid argument! Filepath is not given!\n");
+//                return -1;
+//            } else {
+//                reading_type = SOURCE_FILE;
+//                filepath = argv[i + 1];
+//                i += 2;
+//            }
+//        } else if (!strcmp(&argv[i][1], "color")) {
+//            if (i == argc - 1 || argv[i + 1][0] == '-') {
+//                fprintf(stderr, "Invalid argument! Color scheme is not given!\n");
+//                return -1;
+//            }
+//
+//            if (!strcmp(argv[i + 1], "sharp")) {
+//                picked_char_set_type = CHARSET_SHARP;
+//            } else if (!strcmp(argv[i + 1], "optimal")) {
+//                picked_char_set_type = CHARSET_OPTIMAL;
+//            } else if (!strcmp(argv[i + 1], "standard")) {
+//                picked_char_set_type = CHARSET_STANDART;
+//            } else if (!strcmp(argv[i + 1], "long")) {
+//                picked_char_set_type = CHARSET_LONG;
+//            } else {
+//                fprintf(stderr, "Invalid argument! Unsupported scheme!\n");
+//                return -1;
+//            }
+//            i += 2;
+//        } else if (!strcmp(&argv[i][1], "method")) {
+//            if (i == argc - 1 || argv[i + 1][0] == '-') {
+//                fprintf(stderr, "Invalid argument! Color scheme is not given!\n");
+//                return -1;
+//            }
+//
+//            if (!strcmp(argv[i + 1], "average")) {
+//                grayscale_method = average_chanel_intensity;
+//            } else if (!strcmp(argv[i + 1], "yuv")) {
+//                grayscale_method = yuv_intensity;
+//            } else {
+//                fprintf(stderr, "Invalid argument! Unsupported grayscale method!\n");
+//                return -1;
+//            }
+//            i += 2;
+//        } else {
+//            fprintf(stderr, "Unknown flag!\n");
+//            return -1;
+//        }
+//    }
+    user_params_t user_params;
+    if (argparse(&user_params)) {
+        // ...
         return -1;
     }
 
-    // sets up stream from where we read our RGB frames
-    FILE *pipein = popen(command_buffer, "r");
-    if (!pipein) {
-        fprintf(stderr, "Error when obtaining data stream! Couldn't get an interface with ffmpeg!\n");
+//    char *char_set = char_sets[picked_char_set_type].char_set;
+//    unsigned int max_char_set_index = char_sets[picked_char_set_type].last_index;
+//
+//    char command_buffer[COMMAND_BUFFER_SIZE];
+//    int n_chars_printed = -1;
+//
+//    unsigned int frame_width = 1280, frame_height = 720;
+//    // obtaining an interface with ffmpeg
+//    if (reading_type == SOURCE_CAMERA) {
+//        n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
+//                                   "ffmpeg -hide_banner -loglevel error "
+//                                   "-f v4l2 -i /dev/video0 -f image2pipe "
+//                                   "-vf fps=%d -vf scale=%u:%u -vcodec rawvideo -pix_fmt rgb24 -",
+//                                   VIDEO_FRAMERATE, frame_width, frame_height);
+//    } else if (reading_type == SOURCE_FILE) {
+//        // get input resolution command
+//        n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
+//                                   "ffprobe -v error -select_streams v:0"
+//                                   " -show_entries stream=width,height"
+//                                   " -of default=noprint_wrappers=1:nokey=1 %s",
+//                                   filepath);
+//
+//        if (n_chars_printed < 0) {
+//            fprintf(stderr, "Error obtaining input resolution!\n");
+//            return -1;
+//        } else if (n_chars_printed >= COMMAND_BUFFER_SIZE) {
+//            fprintf(stderr, "Error obtaining input resolution! Query is too big!\n");
+//            return -1;
+//        }
+//        FILE *image_data_pipe = popen(command_buffer, "r");
+//        if (!image_data_pipe) {
+//            fprintf(stderr, "Error obtaining input resolution! Couldn't get an interface with ffprobe!\n");
+//            return -1;
+//        }
+//        // reading input resolution
+//        if (fscanf(image_data_pipe, "%u %u", &frame_width, &frame_height) != 2 ||
+//            fflush(image_data_pipe) || fclose(image_data_pipe)) {
+//            fprintf(stderr, "Error obtaining input resolution! Width/height not found\n");
+//            return -1;
+//        }
+//        n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
+//                                   "ffmpeg -i %s -f image2pipe -hide_banner -loglevel error "
+//                                   "-vf fps=%d -vcodec rawvideo -pix_fmt rgb24 -",
+//                                   filepath, VIDEO_FRAMERATE);
+//    }
+//
+//    if (n_chars_printed < 0) {
+//        fprintf(stderr, "Error preparing ffmpeg command!\n");
+//        return -1;
+//    } else if (n_chars_printed >= COMMAND_BUFFER_SIZE) {
+//        fprintf(stderr, "Error preparing ffmpeg command! Query size is too big!\n");
+//        return -1;
+//    }
+//
+//    // sets up stream from where we read our RGB frames
+//    FILE *pipein = popen(command_buffer, "r");
+//    if (!pipein) {
+//        fprintf(stderr, "Error when obtaining data stream! Couldn't get an interface with ffmpeg!\n");
+//        return -1;
+//    }
+    FILE *pipein = NULL;
+    if (get_video_stream(reading_type, pipein)) {
+        // ...
         return -1;
     }
 
-    uint64_t TOTAL_READ_SIZE = FRAME_WIDTH * FRAME_HEIGHT * 3;
-    unsigned char *video_frame = malloc(sizeof(unsigned char) * FRAME_WIDTH * FRAME_HEIGHT * 3);
+    int frame_width = 1280, frame_height = 720;
+    if (user_params.reading_type == SOURCE_FILE) {
+        if (get_frame_data(&frame_width, &frame_height)) {
+            // ...
+            return -1
+        }
+        if (start_player()) {
+            // ...
+            return -1
+        }
+    }
+    uint64_t TOTAL_READ_SIZE = frame_width * frame_height * 3;
+    unsigned char *video_frame = malloc(sizeof(unsigned char) * frame_width * frame_height * 3);
     // current terminal size in rows and cols
     unsigned int n_available_rows = 0, n_available_cols = 0;
     unsigned int new_n_available_rows, new_n_available_cols;
@@ -203,50 +228,7 @@ int main(int argc, char *argv[]) {
     FILE *logs = fopen("Logs.txt", "w");
 
     timespec startTime;
-    // ==================== aligning player and program output ====================
-    // We force ffplay (our video player) to write its log to a file called <StartIndicator>.
-    // It looks like this:
 
-    // ffplay started on 2022-05-06 at 21:39:01
-    //Report written to "StartIndicator"
-    //Log level: 32
-    //Command line:
-    //ffplay <filepath> -hide_banner -loglevel error -nostats -vf showinfo
-    //[Parsed_showinfo_0 @ 0x7fc458002f00] config in time_base: 1/1000, frame_rate: 30/1
-    //[Parsed_showinfo_0 @ 0x7fc458002f00] config out time_base: 0/0, frame_rate: 0/0
-    //[Parsed_showinfo_0 @ 0x7fc458002f00] n:   0 pts:      0 pts_time:0       pos:      ...   <------ The line we
-    //  ...                                                                                            are looking for
-    //
-
-    // When ffplay starts to process video frames it logs it in the THIRD line
-    // that starts with symbol '['. That symbol we are constantly looking for.
-
-    FILE *original_source = NULL;
-    if (reading_type == SOURCE_FILE) {
-        FILE *ffplay_log_file = fopen("StartIndicator", "w");
-        assert(ffplay_log_file);
-        fclose(ffplay_log_file);
-        snprintf(command_buffer, COMMAND_BUFFER_SIZE,
-                 "FFREPORT=file=StartIndicator:level=32 "
-                 "ffplay %s -hide_banner -loglevel error -nostats -vf showinfo -framedrop", filepath);
-        original_source = popen(command_buffer, "r");
-
-        ffplay_log_file = fopen("StartIndicator", "r");
-        int n_bracket_encounters = 0;
-        while (n_bracket_encounters < 3) {
-            char current_file_char;
-            if ((current_file_char = getc(ffplay_log_file)) == EOF) {
-                long int current_file_position = ftell(ffplay_log_file)-1;
-                fclose(ffplay_log_file);
-                ffplay_log_file = fopen("StartIndicator", "r");
-                fseek(ffplay_log_file, current_file_position, SEEK_SET);
-            }
-            if (current_file_char == '[')
-                ++n_bracket_encounters;
-        }
-        fclose(ffplay_log_file);
-    }
-    // ================================================================================
 
     clock_gettime(CLOCK_MONOTONIC_COARSE, &startTime);
     initscr();
@@ -267,16 +249,16 @@ int main(int argc, char *argv[]) {
             n_available_cols != new_n_available_cols) {
             n_available_rows = new_n_available_rows;
             n_available_cols = new_n_available_cols;
-            row_downscale_coef = MAX((FRAME_HEIGHT + n_available_rows) / n_available_rows, 1);
-            col_downscale_coef = MAX((FRAME_WIDTH  + n_available_cols) / n_available_cols, 1);
+            row_downscale_coef = MAX((frame_height + n_available_rows) / n_available_rows, 1);
+            col_downscale_coef = MAX((frame_width  + n_available_cols) / n_available_cols, 1);
 
-            trimmed_height = FRAME_HEIGHT - FRAME_HEIGHT % row_downscale_coef;
-            trimmed_width = FRAME_WIDTH - FRAME_WIDTH % col_downscale_coef;
+            trimmed_height = frame_height - frame_height % row_downscale_coef;
+            trimmed_width = frame_width - frame_width % col_downscale_coef;
             left_border_indent = (n_available_cols - trimmed_width / col_downscale_coef) / 2;
             clear();
         }
         // ASCII frame preparation
-        draw_frame(video_frame, FRAME_WIDTH, trimmed_height, trimmed_width, row_downscale_coef, col_downscale_coef,
+        draw_frame(video_frame, frame_width, trimmed_height, trimmed_width, row_downscale_coef, col_downscale_coef,
                    left_border_indent, char_set, max_char_set_index, grayscale_method);
         // ASCII frame drawing
         refresh();
