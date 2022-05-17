@@ -16,7 +16,6 @@
 #include "../include/utils.h"
 #include "../include/argparsing.h"
 
-#define COMMAND_BUFFER_SIZE 512
 #define VIDEO_FRAMERATE 25
 
 typedef struct {
@@ -32,7 +31,6 @@ static char_set_data char_sets[CHARSET_N] = {
         {"$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. ", 69}
 };
 
-typedef enum {SOURCE_FILE, SOURCE_CAMERA} t_source;
 
 void close_pipe(FILE *pipeline) {
     fflush(pipeline);
@@ -127,68 +125,8 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-//    char *char_set = char_sets[picked_char_set_type].char_set;
-//    unsigned int max_char_set_index = char_sets[picked_char_set_type].last_index;
-//
-//    char command_buffer[COMMAND_BUFFER_SIZE];
-//    int n_chars_printed = -1;
-//
-//    unsigned int frame_width = 1280, frame_height = 720;
-//    // obtaining an interface with ffmpeg
-//    if (reading_type == SOURCE_CAMERA) {
-//        n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
-//                                   "ffmpeg -hide_banner -loglevel error "
-//                                   "-f v4l2 -i /dev/video0 -f image2pipe "
-//                                   "-vf fps=%d -vf scale=%u:%u -vcodec rawvideo -pix_fmt rgb24 -",
-//                                   VIDEO_FRAMERATE, frame_width, frame_height);
-//    } else if (reading_type == SOURCE_FILE) {
-//        // get input resolution command
-//        n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
-//                                   "ffprobe -v error -select_streams v:0"
-//                                   " -show_entries stream=width,height"
-//                                   " -of default=noprint_wrappers=1:nokey=1 %s",
-//                                   filepath);
-//
-//        if (n_chars_printed < 0) {
-//            fprintf(stderr, "Error obtaining input resolution!\n");
-//            return -1;
-//        } else if (n_chars_printed >= COMMAND_BUFFER_SIZE) {
-//            fprintf(stderr, "Error obtaining input resolution! Query is too big!\n");
-//            return -1;
-//        }
-//        FILE *image_data_pipe = popen(command_buffer, "r");
-//        if (!image_data_pipe) {
-//            fprintf(stderr, "Error obtaining input resolution! Couldn't get an interface with ffprobe!\n");
-//            return -1;
-//        }
-//        // reading input resolution
-//        if (fscanf(image_data_pipe, "%u %u", &frame_width, &frame_height) != 2 ||
-//            fflush(image_data_pipe) || fclose(image_data_pipe)) {
-//            fprintf(stderr, "Error obtaining input resolution! Width/height not found\n");
-//            return -1;
-//        }
-//        n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
-//                                   "ffmpeg -i %s -f image2pipe -hide_banner -loglevel error "
-//                                   "-vf fps=%d -vcodec rawvideo -pix_fmt rgb24 -",
-//                                   filepath, VIDEO_FRAMERATE);
-//    }
-//
-//    if (n_chars_printed < 0) {
-//        fprintf(stderr, "Error preparing ffmpeg command!\n");
-//        return -1;
-//    } else if (n_chars_printed >= COMMAND_BUFFER_SIZE) {
-//        fprintf(stderr, "Error preparing ffmpeg command! Query size is too big!\n");
-//        return -1;
-//    }
-//
-//    // sets up stream from where we read our RGB frames
-//    FILE *pipein = popen(command_buffer, "r");
-//    if (!pipein) {
-//        fprintf(stderr, "Error when obtaining data stream! Couldn't get an interface with ffmpeg!\n");
-//        return -1;
-//    }
     FILE *pipein = NULL;
-    if (get_video_stream(reading_type, pipein)) {
+    if (get_video_stream(user_params.reading_type, pipein)) {
         // ...
         return -1;
     }
@@ -197,11 +135,11 @@ int main(int argc, char *argv[]) {
     if (user_params.reading_type == SOURCE_FILE) {
         if (get_frame_data(&frame_width, &frame_height)) {
             // ...
-            return -1
+            return -1;
         }
         if (start_player()) {
             // ...
-            return -1
+            return -1;
         }
     }
     uint64_t TOTAL_READ_SIZE = frame_width * frame_height * 3;
