@@ -3,20 +3,14 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <sys/stat.h>
 #include <assert.h>
 #include <time.h>
-#include <inttypes.h>
-#include <limits.h>
 
-#include "../include/struct.h"
 #include "../include/video_stream.h"
 #include "../include/frame_utils.h"
 #include "../include/timestamps.h"
-#include "../include/utils.h"
 #include "../include/argparsing.h"
 
-#define VIDEO_FRAMERATE 25
 
 typedef struct {
     char *char_set;
@@ -37,103 +31,32 @@ void close_pipe(FILE *pipeline) {
     pclose(pipeline);
 }
 
-void free_space(unsigned char *video_frame, FILE *or_source, FILE *pipeline, FILE *logs_file){
+void free_space(unsigned char *video_frame, FILE *pipeline, FILE *logs_file){
     free(video_frame);
-    close_pipe(or_source);
     close_pipe(pipeline);
     fflush(logs_file);
     fclose(logs_file);
 }
-#include <limits.h>
-int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        fprintf(stderr, "Bad number of arguments!\n");
-        return -1;
-    }
 
-    // flags:
-    // -f <Media path>
-    // -c : (camera support)
-    // -color [sharp | optimal | standard | long] : ascii set
-    // -method [average | yuv] : grayscale conversion methods
-//    t_source reading_type = SOURCE_FILE;
-//    char *filepath = NULL;
-//    t_char_set picked_char_set_type = CHARSET_OPTIMAL;
-//    region_intensity_t grayscale_method = average_chanel_intensity;
-//
-//    // argument parsing
-//    for (int i=1; i<argc;) {
-//        if (argv[i][0] != '-') {
-//            fprintf(stderr, "Invalid argument! Value is given without a corresponding flag!\n");
-//            return -1;
-//        }
-//
-//        if (!strcmp(&argv[i][1], "c")) {
-//            reading_type = SOURCE_CAMERA;
-//            ++i;
-//        } else if (!strcmp(&argv[i][1], "f")) {
-//            if (i == argc - 1 || argv[i + 1][0] == '-') {
-//                fprintf(stderr, "Invalid argument! Filepath is not given!\n");
-//                return -1;
-//            } else {
-//                reading_type = SOURCE_FILE;
-//                filepath = argv[i + 1];
-//                i += 2;
-//            }
-//        } else if (!strcmp(&argv[i][1], "color")) {
-//            if (i == argc - 1 || argv[i + 1][0] == '-') {
-//                fprintf(stderr, "Invalid argument! Color scheme is not given!\n");
-//                return -1;
-//            }
-//
-//            if (!strcmp(argv[i + 1], "sharp")) {
-//                picked_char_set_type = CHARSET_SHARP;
-//            } else if (!strcmp(argv[i + 1], "optimal")) {
-//                picked_char_set_type = CHARSET_OPTIMAL;
-//            } else if (!strcmp(argv[i + 1], "standard")) {
-//                picked_char_set_type = CHARSET_STANDART;
-//            } else if (!strcmp(argv[i + 1], "long")) {
-//                picked_char_set_type = CHARSET_LONG;
-//            } else {
-//                fprintf(stderr, "Invalid argument! Unsupported scheme!\n");
-//                return -1;
-//            }
-//            i += 2;
-//        } else if (!strcmp(&argv[i][1], "method")) {
-//            if (i == argc - 1 || argv[i + 1][0] == '-') {
-//                fprintf(stderr, "Invalid argument! Color scheme is not given!\n");
-//                return -1;
-//            }
-//
-//            if (!strcmp(argv[i + 1], "average")) {
-//                grayscale_method = average_chanel_intensity;
-//            } else if (!strcmp(argv[i + 1], "yuv")) {
-//                grayscale_method = yuv_intensity;
-//            } else {
-//                fprintf(stderr, "Invalid argument! Unsupported grayscale method!\n");
-//                return -1;
-//            }
-//            i += 2;
-//        } else {
-//            fprintf(stderr, "Unknown flag!\n");
-//            return -1;
-//        }
-//    }
+int main(int argc, char *argv[]) {
     user_params_t user_params;
-    if (argparse(&user_params)) {
-        // ...
-        return -1;
-    }
+//    if (argparse(&user_params, argc, argv)) {
+//        // ...
+//        return -1;
+//    }
+    user_params.reading_type = SOURCE_FILE;
+    user_params.file_path = "./Media/BadApple.mp4";
+    user_params.charset_data = "N@#W$9876543210?!abc;:+=-,._ ";
+    user_params.pixel_block_processing_method = average_chanel_intensity;
 
     FILE *pipein = NULL;
-    if (get_video_stream(user_params.reading_type, pipein)) {
-        // ...
-        return -1;
-    }
-
-    int frame_width = 1280, frame_height = 720;
+    frame_data_t frame_data = {NULL, 1280, 720};
     if (user_params.reading_type == SOURCE_FILE) {
-        if (get_frame_data(&frame_width, &frame_height)) {
+        if (!(pipein = get_file_stream(user_params.file_path))) {
+            // ...
+            return -1;
+        }
+        if (get_frame_data(user_params.file_path, &frame_data.width, &frame_data.height)) {
             // ...
             return -1;
         }
@@ -141,38 +64,46 @@ int main(int argc, char *argv[]) {
             // ...
             return -1;
         }
+    } else if (user_params.reading_type == SOURCE_CAMERA) {
+        if (!(pipein = get_camera_stream(frame_data.width, frame_data.height))) {
+            // ...
+            return -1;
+        }
+    } else {
+        // ...
+        return -1;
     }
-    uint64_t TOTAL_READ_SIZE = frame_width * frame_height * 3;
-    unsigned char *video_frame = malloc(sizeof(unsigned char) * frame_width * frame_height * 3);
+    assert(pipein);
+    int TOTAL_READ_SIZE = frame_data.width * frame_data.height * 3;
+    frame_data.video_frame = malloc(sizeof(unsigned char) * TOTAL_READ_SIZE);
     // current terminal size in rows and cols
-    unsigned int n_available_rows = 0, n_available_cols = 0;
-    unsigned int new_n_available_rows, new_n_available_cols;
+    int n_available_rows = 0, n_available_cols = 0;
+    int new_n_available_rows, new_n_available_cols;
 
     // video frame downsample coefficients
-    unsigned int row_downscale_coef = 1, col_downscale_coef = 1;
-    unsigned int trimmed_height, trimmed_width;
-    unsigned int left_border_indent;
+    int row_downscale_coef = 1, col_downscale_coef = 1;
+    int trimmed_height, trimmed_width;
+    int left_border_indent;
 
-    uint64_t n_read_items;  // n bytes read from pipe
-    uint64_t prev_frame_index = 0, current_frame_index = 0;
-    uint64_t next_frame_index_measured_by_time = 0;
-    int64_t desync=0, i;
+    int n_read_items;  // n bytes read from pipe
+    size_t prev_frame_index = 0, current_frame_index = 0;
+    size_t next_frame_index_measured_by_time = 0;
+    size_t desync = 0, i;
 
-    uint64_t total_elapsed_time, last_total_elapsed_time=0;
+    size_t total_elapsed_time, last_total_elapsed_time=0;
     // !uint64_t int division doesn't work with operand of other type!
-    uint64_t frame_timing_sleep = N_uSECONDS_IN_ONE_SEC / VIDEO_FRAMERATE;
-    uint64_t usecs_per_frame=0, sleep_time;
+    size_t frame_timing_sleep = N_uSECONDS_IN_ONE_SEC / VIDEO_FRAMERATE;
+    size_t usecs_per_frame=0, sleep_time;
 
     FILE *logs = fopen("Logs.txt", "w");
 
     timespec startTime;
 
-
     clock_gettime(CLOCK_MONOTONIC_COARSE, &startTime);
     initscr();
     curs_set(0);
     total_elapsed_time = get_elapsed_time_from_start_us(startTime);
-    while ((n_read_items = fread(video_frame, sizeof(char), TOTAL_READ_SIZE, pipein)) || !feof(pipein)) {
+    while ((n_read_items = fread(frame_data.video_frame, sizeof(char), TOTAL_READ_SIZE, pipein)) || !feof(pipein)) {
         if (n_read_items < TOTAL_READ_SIZE) {
             total_elapsed_time = get_elapsed_time_from_start_us(startTime);
             sleep_time = frame_timing_sleep - (total_elapsed_time % frame_timing_sleep);
@@ -187,17 +118,17 @@ int main(int argc, char *argv[]) {
             n_available_cols != new_n_available_cols) {
             n_available_rows = new_n_available_rows;
             n_available_cols = new_n_available_cols;
-            row_downscale_coef = MAX((frame_height + n_available_rows) / n_available_rows, 1);
-            col_downscale_coef = MAX((frame_width  + n_available_cols) / n_available_cols, 1);
+            row_downscale_coef = MAX((frame_data.height + n_available_rows) / n_available_rows, 1);
+            col_downscale_coef = MAX((frame_data.width  + n_available_cols) / n_available_cols, 1);
 
-            trimmed_height = frame_height - frame_height % row_downscale_coef;
-            trimmed_width = frame_width - frame_width % col_downscale_coef;
+            trimmed_height = frame_data.height - frame_data.height % row_downscale_coef;
+            trimmed_width = frame_data.width - frame_data.width % col_downscale_coef;
             left_border_indent = (n_available_cols - trimmed_width / col_downscale_coef) / 2;
             clear();
         }
         // ASCII frame preparation
-        draw_frame(video_frame, frame_width, trimmed_height, trimmed_width, row_downscale_coef, col_downscale_coef,
-                   left_border_indent, char_set, max_char_set_index, grayscale_method);
+        draw_frame(frame_data.video_frame, frame_data.width, trimmed_height, trimmed_width, row_downscale_coef, col_downscale_coef,
+                   left_border_indent, user_params.charset_data, strlen(user_params.charset_data)-1, user_params.pixel_block_processing_method);
         // ASCII frame drawing
         refresh();
 
@@ -213,35 +144,36 @@ int main(int argc, char *argv[]) {
         // FPS      - Frames Per Second;
 
         // "EL uS:%10llu|EL S:%8.2f|FI:%5llu|TFI:%5llu|TFI - FI:%2d|uSPF:%8llu|Cur uSPF:%8llu|Avg uSPF:%8llu|FPS:%8f"
-        snprintf(command_buffer, COMMAND_BUFFER_SIZE,
-                 "EL uS:%10" PRIu64 "|EL S:%8.2f|FI:%5" PRIu64 "|TFI:%5" PRIu64 "|TFI - FI:%2" PRId64
-                 "|uSPF:%8" PRIu64 "|Cur uSPF:%8" PRIu64 "|Avg uSPF:%8" PRIu64 "|FPS:%8f",
-                 total_elapsed_time,
-                 (double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC,
-                 prev_frame_index,
-                 next_frame_index_measured_by_time,
-                 desync,
-                 frame_timing_sleep,
-                 total_elapsed_time - last_total_elapsed_time,
-                 usecs_per_frame,
-                 prev_frame_index / ((double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC));
-        printw("\n%s\n", command_buffer);
-        fprintf(logs, "%s\n", command_buffer);
+//        snprintf(command_buffer, COMMAND_BUFFER_SIZE,
+//                 "EL uS:%10zu|EL S:%8.2f|FI:%5zu|TFI:%5zu|abs(TFI - FI):%2zu|uSPF:%8d|Cur uSPF:%8zu|Avg uSPF:%8zu|FPS:%8f",
+//                 total_elapsed_time,
+//                 (double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC,
+//                 prev_frame_index,
+//                 next_frame_index_measured_by_time,
+//                 desync,
+//                 frame_timing_sleep,
+//                 total_elapsed_time - last_total_elapsed_time,
+//                 usecs_per_frame,
+//                 prev_frame_index / ((double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC));
+//        printw("\n%s\n", command_buffer);
+//        fprintf(logs, "%s\n", command_buffer);
         // =============================================
+        prev_frame_index = current_frame_index;
         last_total_elapsed_time = total_elapsed_time;
         total_elapsed_time = get_elapsed_time_from_start_us(startTime);
         usecs_per_frame  = total_elapsed_time / current_frame_index + (total_elapsed_time % current_frame_index != 0);
         sleep_time = frame_timing_sleep - (total_elapsed_time % frame_timing_sleep);
         next_frame_index_measured_by_time =  // ceil(total_elapsed_time / frame_timing_sleep)
                 total_elapsed_time / frame_timing_sleep + (total_elapsed_time % frame_timing_sleep != 0);
-        desync = next_frame_index_measured_by_time - current_frame_index;
 
-        prev_frame_index = current_frame_index;
-        if (reading_type == SOURCE_FILE && desync > 0) {
-            for (i=0; i < desync; ++i)
-                fread(video_frame, sizeof(char), TOTAL_READ_SIZE, pipein);
+        desync = (next_frame_index_measured_by_time > current_frame_index)
+                ? next_frame_index_measured_by_time - current_frame_index
+                : current_frame_index - next_frame_index_measured_by_time;
+
+        if (user_params.reading_type == SOURCE_FILE && next_frame_index_measured_by_time > current_frame_index) {
+            fread(frame_data.video_frame, sizeof(char), TOTAL_READ_SIZE * desync, pipein);
             current_frame_index = next_frame_index_measured_by_time;
-        } else if (desync < 0) {
+        } else if (next_frame_index_measured_by_time < current_frame_index) {
             usleep((current_frame_index - next_frame_index_measured_by_time) * frame_timing_sleep);
         }
         usleep(sleep_time);
@@ -249,6 +181,6 @@ int main(int argc, char *argv[]) {
     getchar();
     endwin();
     printf("END\n");
-    free_space(video_frame, original_source, pipein, logs);
+    free_space(frame_data.video_frame, pipein, logs);
     return 0;
 }

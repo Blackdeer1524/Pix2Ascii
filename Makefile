@@ -21,7 +21,8 @@ build: $(TARGET)
 rebuild: clean build
 
 $(TARGET): $(SRCS)
-	$(CC) -I $(HDRS) $(SRCS) -lncurses -o $(TARGET)
+	$(CC) -I $(HDRS) $(SRCS) -lncurses -o $(TARGET) -g
 
 clean:
 	rm -f $(TARGET) Logs.txt StartIndicator
+

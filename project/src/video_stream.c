@@ -3,12 +3,12 @@
 //
 #include <stdio.h>
 
-#include "video_stream.h"
+#include "../include/video_stream.h"
 
-
+#define COMMAND_BUFFER_SIZE 512
 static char command_buffer[COMMAND_BUFFER_SIZE];
 
-int get_frame_data(int *frame_width, int *frame_height) {
+int get_frame_data(const char *filepath, int *frame_width, int *frame_height) {
     int n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
                                    "ffprobe -v error -select_streams v:0"
                                    " -show_entries stream=width,height"
@@ -37,34 +37,48 @@ int get_frame_data(int *frame_width, int *frame_height) {
 }
 
 
-int get_video_stream(t_source reading_type, FILE *video_stream) {
-    if (reading_type == SOURCE_CAMERA) {
-        n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
-                                   "ffmpeg -hide_banner -loglevel error "
-                                   "-f v4l2 -i /dev/video0 -f image2pipe "
-                                   "-vf fps=%d -vf scale=%u:%u -vcodec rawvideo -pix_fmt rgb24 -",
-                                   VIDEO_FRAMERATE, frame_width, frame_height);
-    } else if (reading_type == SOURCE_FILE) {
-        n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
-                                   "ffmpeg -i %s -f image2pipe -hide_banner -loglevel error "
-                                   "-vf fps=%d -vcodec rawvideo -pix_fmt rgb24 -",
-                                   filepath, VIDEO_FRAMERATE);
+FILE *get_camera_stream(int frame_width, int frame_height) {
+    int n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
+                               "ffmpeg -hide_banner -loglevel error "
+                               "-f v4l2 -i /dev/video0 -f image2pipe "
+                               "-vf fps=%d -vf scale=%u:%u -vcodec rawvideo -pix_fmt rgb24 -",
+                               VIDEO_FRAMERATE, frame_width, frame_height);
+    if (n_chars_printed < 0) {
+        fprintf(stderr, "Error setting up camera!\n");
+        return NULL;
+    } else if (n_chars_printed >= COMMAND_BUFFER_SIZE) {
+        fprintf(stderr, "Error setting up camera! Query size is too big!\n");
+        return NULL;
     }
+    // sets up stream from where we read our RGB frames
+    FILE *video_stream = popen(command_buffer, "r");
+    if (!video_stream) {
+        fprintf(stderr, "Error setting up camera! Couldn't set an interface with camera!\n");
+        return NULL;
+    }
+    return video_stream;
+}
+
+
+FILE *get_file_stream(const char *file_path) {
+    int n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
+                               "ffmpeg -i %s -f image2pipe -hide_banner -loglevel error "
+                               "-vf fps=%d -vcodec rawvideo -pix_fmt rgb24 -",
+                               file_path, VIDEO_FRAMERATE);
     if (n_chars_printed < 0) {
         fprintf(stderr, "Error preparing ffmpeg command!\n");
-        return -1;
+        return NULL;
     } else if (n_chars_printed >= COMMAND_BUFFER_SIZE) {
         fprintf(stderr, "Error preparing ffmpeg command! Query size is too big!\n");
-        return -1;
+        return NULL;
     }
-
     // sets up stream from where we read our RGB frames
-    FILE *pipein = popen(command_buffer, "r");
-    if (!pipein) {
-        fprintf(stderr, "Error when obtaining data stream! Couldn't set an interface between ffmpeg!\n");
-        return -1;
+    FILE *video_stream = popen(command_buffer, "r");
+    if (!video_stream) {
+        fprintf(stderr, "Error obtaining data stream! Couldn't set an interface with ffmpeg!\n");
+        return NULL;
     }
-    return 0;
+    return video_stream;
 }
 
 int start_player() {
@@ -94,6 +108,7 @@ int start_player() {
 //        snprintf(command_buffer, COMMAND_BUFFER_SIZE,
 //                 "FFREPORT=file=StartIndicator:level=32 "
 //                 "ffplay %s -hide_banner -loglevel error -nostats -vf showinfo -framedrop", filepath);
+//        // Через fork() и exec (?)
 //        original_source = popen(command_buffer, "r");
 //
 //        ffplay_log_file = fopen("StartIndicator", "r");

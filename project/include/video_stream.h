@@ -1,12 +1,11 @@
 #ifndef PIX2ASCII_VIDEO_STREAM_H
 #define PIX2ASCII_VIDEO_STREAM_H
 
-#define COMMAND_BUFFER_SIZE 512
+#define VIDEO_FRAMERATE 25
 
-typedef enum {SOURCE_FILE, SOURCE_CAMERA} source_t;
-
-int get_frame_data(int *frame_width, int *frame_height);
-int get_video_stream(source_t reading_type, FILE *video_stream);
+int get_frame_data(const char *filepath, int *frame_width, int *frame_height);
+FILE *get_camera_stream(int frame_width, int frame_height);
+FILE *get_file_stream(const char *file_path);
 int start_player();
 
 #endif //PIX2ASCII_VIDEO_STREAM_H
