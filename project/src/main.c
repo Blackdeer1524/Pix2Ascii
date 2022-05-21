@@ -10,6 +10,7 @@
 #include "../include/frame_utils.h"
 #include "../include/timestamps.h"
 #include "../include/argparsing.h"
+#include "../include/error.h"
 
 
 typedef struct {
@@ -40,11 +41,12 @@ void free_space(unsigned char *video_frame, FILE *pipeline, FILE *logs_file){
 
 int main(int argc, char *argv[]) {
     user_params_t user_params;
-//    if (argparse(&user_params, argc, argv)) {
-//        // ...
-//        return -1;
-//    }
-    user_params.reading_type = SOURCE_FILE;
+
+    if (argparse(&user_params, argc, argv)) {
+        // ...
+        return ARG_COUNT_ERROR;
+    }
+
     user_params.file_path = "./Media/BadApple.mp4";
     user_params.charset_data = "N@#W$9876543210?!abc;:+=-,._ ";
     user_params.pixel_block_processing_method = average_chanel_intensity;

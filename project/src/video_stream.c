@@ -86,16 +86,17 @@ FILE *get_file_stream(const char *file_path) {
 
 int start_player(char *file_path) {
     FILE *ffplay_log_file = NULL;
+    FILE *tmp = NULL;
 
     snprintf(command_buffer, COMMAND_BUFFER_SIZE,
              "FFREPORT=file=StartIndicator:level=32 "
              "ffplay %s -hide_banner -loglevel error -nostats -vf showinfo -framedrop", file_path);
 
-    if (popen(command_buffer, "r") == NULL) {
+    if (!(tmp = popen(command_buffer, "r"))) {
         return POPEN_ERROR;
     }
 
-    if ((ffplay_log_file = fopen("StartIndicator", "w+")) == NULL) {
+    if (!(ffplay_log_file = fopen("StartIndicator", "w+"))) {
         return FOPEN_ERROR;
     }
 
@@ -106,7 +107,7 @@ int start_player(char *file_path) {
             size_t current_file_position = ftell(ffplay_log_file) - 1;
 
             fclose(ffplay_log_file);
-            if ((ffplay_log_file = fopen("StartIndicator", "r")) == NULL) {
+            if (!(ffplay_log_file = fopen("StartIndicator", "r"))) {
                 return FOPEN_ERROR;
             }
 
@@ -117,5 +118,5 @@ int start_player(char *file_path) {
     }
     fclose(ffplay_log_file);
 
-    return EXIT_SUCCESS;
+    return SUCCESS;
 }
