@@ -3,7 +3,7 @@
 //
 #include <stdio.h>
 
-#include "../include/video_stream.h"
+#include "videostream.h"
 
 #define COMMAND_BUFFER_SIZE 512
 static char command_buffer[COMMAND_BUFFER_SIZE];

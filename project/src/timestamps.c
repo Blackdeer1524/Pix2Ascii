@@ -1,4 +1,4 @@
-#include "../include/timestamps.h"
+#include "timestamps.h"
 
 
 timespec diff(timespec *start, timespec *end) {

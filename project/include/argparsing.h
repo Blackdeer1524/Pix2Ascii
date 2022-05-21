@@ -1,7 +1,7 @@
 #ifndef PIX2ASCII_ARGPARSING_H
 #define PIX2ASCII_ARGPARSING_H
 
-#include "frame_utils.h"
+#include "frame_processing.h"
 
 typedef enum {SOURCE_FILE, SOURCE_CAMERA} source_t;
 

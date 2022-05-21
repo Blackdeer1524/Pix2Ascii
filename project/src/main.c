@@ -6,10 +6,11 @@
 #include <assert.h>
 #include <time.h>
 
-#include "../include/video_stream.h"
-#include "../include/frame_utils.h"
+#include "../include/videostream.h"
+#include "../include/frame_processing.h"
 #include "../include/timestamps.h"
 #include "../include/argparsing.h"
+#include "../include/termstream.h"
 
 
 typedef struct {
@@ -50,7 +51,10 @@ int main(int argc, char *argv[]) {
     user_params.pixel_block_processing_method = average_chanel_intensity;
 
     FILE *pipein = NULL;
-    frame_data_t frame_data = {NULL, 1280, 720};
+    frame_params_t frame_data;
+
+    frame_data.width = 1280;
+    frame_data.height = 720;
     if (user_params.reading_type == SOURCE_FILE) {
         if (!(pipein = get_file_stream(user_params.file_path))) {
             // ...
@@ -76,14 +80,10 @@ int main(int argc, char *argv[]) {
     assert(pipein);
     int TOTAL_READ_SIZE = frame_data.width * frame_data.height * 3;
     frame_data.video_frame = malloc(sizeof(unsigned char) * TOTAL_READ_SIZE);
-    // current terminal size in rows and cols
-    int n_available_rows = 0, n_available_cols = 0;
-    int new_n_available_rows, new_n_available_cols;
-
-    // video frame downsample coefficients
-    int row_downscale_coef = 1, col_downscale_coef = 1;
-    int trimmed_height, trimmed_width;
-    int left_border_indent;
+    if (!frame_data.video_frame) {
+        // ...
+        return -1;
+    }
 
     int n_read_items;  // n bytes read from pipe
     size_t prev_frame_index = 0, current_frame_index = 0;
@@ -112,23 +112,8 @@ int main(int argc, char *argv[]) {
         }
         ++current_frame_index;  // current_frame_index is incremented because of fread()
 
-        // terminal resize check
-        getmaxyx(stdscr, new_n_available_rows, new_n_available_cols);
-        if (n_available_rows != new_n_available_rows ||
-            n_available_cols != new_n_available_cols) {
-            n_available_rows = new_n_available_rows;
-            n_available_cols = new_n_available_cols;
-            row_downscale_coef = MAX((frame_data.height + n_available_rows) / n_available_rows, 1);
-            col_downscale_coef = MAX((frame_data.width  + n_available_cols) / n_available_cols, 1);
-
-            trimmed_height = frame_data.height - frame_data.height % row_downscale_coef;
-            trimmed_width = frame_data.width - frame_data.width % col_downscale_coef;
-            left_border_indent = (n_available_cols - trimmed_width / col_downscale_coef) / 2;
-            clear();
-        }
         // ASCII frame preparation
-        draw_frame(frame_data.video_frame, frame_data.width, trimmed_height, trimmed_width, row_downscale_coef, col_downscale_coef,
-                   left_border_indent, user_params.charset_data, strlen(user_params.charset_data)-1, user_params.pixel_block_processing_method);
+        draw_frame(&frame_data, user_params.charset_data, strlen(user_params.charset_data)-1, user_params.pixel_block_processing_method);
         // ASCII frame drawing
         refresh();
 

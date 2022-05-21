@@ -1,41 +1,30 @@
 #ifndef PROJECT_INCLUDE_FRAME_UTILS_H_
 #define PROJECT_INCLUDE_FRAME_UTILS_H_
 
-#include "utils.h"
-#include <ncurses.h>
+#include "termstream.h"
+
 
 typedef struct {
     unsigned char *video_frame;
     int width;
     int height;
-} frame_data_t;
+    int trimmed_width;
+    int trimmed_height;
+    int row_downscale_coef;
+    int col_downscale_coef;
+    int left_border_indent;
+} frame_params_t;
 
+typedef unsigned char (*region_intensity_t)(const frame_params_t *frame_params,
+                                            int cur_pixel_row,
+                                            int cur_pixel_col);
 
-unsigned char average_chanel_intensity(const unsigned char *video_frame,
-                                       unsigned int frame_width,
-                                       unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
-                                       unsigned long row_step, unsigned long col_step);
+unsigned char average_chanel_intensity(const frame_params_t *video_frame,
+                                       int cur_pixel_row,
+                                       int cur_pixel_col);
 
-unsigned char yuv_intensity(const unsigned char *video_frame,
-                            unsigned int frame_width,
-                            unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
-                            unsigned long row_step, unsigned long col_step);
-
-typedef unsigned char (*region_intensity_t)(const unsigned char *video_frame,
-                                            unsigned int frame_width,
-                                            unsigned long cur_pixel_row,  unsigned long cur_pixel_col,
-                                            unsigned long row_step, unsigned long col_step);
-
-void draw_frame(const unsigned char *video_frame,
-                unsigned int frame_width,
-                unsigned int trimmed_height,
-                unsigned int trimmed_width,
-                unsigned int row_downscale_coef,
-                unsigned int col_downscale_coef,
-                unsigned int left_border_indent,
-                const char char_set[],
-                unsigned int max_char_set_index,
-                region_intensity_t get_region_intensity);
-
+unsigned char yuv_intensity(const frame_params_t *frame_params,
+                            int cur_pixel_row,
+                            int cur_pixel_col);
 
 #endif  // PROJECT_INCLUDE_FRAME_UTILS_H_
