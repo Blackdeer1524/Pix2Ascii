@@ -60,9 +60,11 @@ int main(int argc, char *argv[]) {
             // ...
             return -1;
         }
-        if (start_player()) {
-            // ...
-            return -1;
+        if (user_params.reading_type == SOURCE_FILE) {
+            if (start_player(user_params.file_path)) {
+                // ...
+                return -1;
+            }
         }
     } else if (user_params.reading_type == SOURCE_CAMERA) {
         if (!(pipein = get_camera_stream(frame_data.width, frame_data.height))) {

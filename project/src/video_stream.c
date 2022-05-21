@@ -2,10 +2,13 @@
 // Created by blackdeer on 5/17/22.
 //
 #include <stdio.h>
+#include <stdlib.h>
 
-#include "../include/video_stream.h"
+#include "video_stream.h"
+#include "error.h"
 
 #define COMMAND_BUFFER_SIZE 512
+
 static char command_buffer[COMMAND_BUFFER_SIZE];
 
 int get_frame_data(const char *filepath, int *frame_width, int *frame_height) {
@@ -41,7 +44,7 @@ FILE *get_camera_stream(int frame_width, int frame_height) {
     int n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
                                "ffmpeg -hide_banner -loglevel error "
                                "-f v4l2 -i /dev/video0 -f image2pipe "
-                               "-vf fps=%d -vf scale=%u:%u -vcodec rawvideo -pix_fmt rgb24 -",
+                               "-vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -",
                                VIDEO_FRAMERATE, frame_width, frame_height);
     if (n_chars_printed < 0) {
         fprintf(stderr, "Error setting up camera!\n");
@@ -81,33 +84,38 @@ FILE *get_file_stream(const char *file_path) {
     return video_stream;
 }
 
-int start_player() {
-    FILE *original_source = NULL;
-    if (reading_type == SOURCE_FILE) {
-        FILE *ffplay_log_file = fopen("StartIndicator", "w");
-        assert(ffplay_log_file);
-        fclose(ffplay_log_file);
-        snprintf(command_buffer, COMMAND_BUFFER_SIZE,
-                 "FFREPORT=file=StartIndicator:level=32 "
-                 "ffplay %s -hide_banner -loglevel error -nostats -vf showinfo -framedrop", filepath);
-        // Через fork() и exec (?)
-        original_source = popen(command_buffer, "r");
+int start_player(char *file_path) {
+    FILE *ffplay_log_file = NULL;
 
-        ffplay_log_file = fopen("StartIndicator", "r");
-        int n_bracket_encounters = 0;
-        while (n_bracket_encounters < 3) {
-            char current_file_char;
-            if ((current_file_char = getc(ffplay_log_file)) == EOF) {
-                long int current_file_position = ftell(ffplay_log_file)-1;
-                fclose(ffplay_log_file);
-                ffplay_log_file = fopen("StartIndicator", "r");
-                fseek(ffplay_log_file, current_file_position, SEEK_SET);
-            }
-            if (current_file_char == '[')
-                ++n_bracket_encounters;
-        }
-        fclose(ffplay_log_file);
+    snprintf(command_buffer, COMMAND_BUFFER_SIZE,
+             "FFREPORT=file=StartIndicator:level=32 "
+             "ffplay %s -hide_banner -loglevel error -nostats -vf showinfo -framedrop", file_path);
+
+    if (popen(command_buffer, "r") == NULL) {
+        return POPEN_ERROR;
     }
 
-    return 0;
+    if ((ffplay_log_file = fopen("StartIndicator", "w+")) == NULL) {
+        return FOPEN_ERROR;
+    }
+
+    int brackets_count = 0;
+    while (brackets_count < 3) {
+        char current_symbol;
+        if ((current_symbol = getc(ffplay_log_file)) == EOF) {
+            size_t current_file_position = ftell(ffplay_log_file) - 1;
+
+            fclose(ffplay_log_file);
+            if ((ffplay_log_file = fopen("StartIndicator", "r")) == NULL) {
+                return FOPEN_ERROR;
+            }
+
+            fseek(ffplay_log_file, current_file_position, SEEK_SET);
+        } else if (current_symbol == '[') {
+            ++brackets_count;
+        }
+    }
+    fclose(ffplay_log_file);
+
+    return EXIT_SUCCESS;
 }
