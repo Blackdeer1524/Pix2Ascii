@@ -1,5 +1,5 @@
-#include "../include/argparsing.h"
-#include "../include/frame_processing.h"
+#include "argparsing.h"
+#include "frame_processing.h"
 
 
 int argparse(user_params_t *user_params, int argc, char *argv[]) {

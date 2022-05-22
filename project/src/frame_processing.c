@@ -1,5 +1,5 @@
-#include "../include/frame_processing.h"
-#include "../include/utils.h"
+#include "frame_processing.h"
+#include "utils.h"
 
 
 static void process_block(const frame_params_t *frame_params,

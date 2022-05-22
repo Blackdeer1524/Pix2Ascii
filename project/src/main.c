@@ -6,11 +6,11 @@
 #include <assert.h>
 #include <time.h>
 
-#include "../include/videostream.h"
-#include "../include/frame_processing.h"
-#include "../include/timestamps.h"
-#include "../include/argparsing.h"
-#include "../include/termstream.h"
+#include "videostream.h"
+#include "frame_processing.h"
+#include "timestamps.h"
+#include "argparsing.h"
+#include "termstream.h"
 
 
 typedef struct {

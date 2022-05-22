@@ -3,7 +3,6 @@
 
 #include "termstream.h"
 
-
 typedef struct {
     unsigned char *video_frame;
     int width;
