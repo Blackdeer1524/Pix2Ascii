@@ -38,10 +38,12 @@ void update_terminal_size(frame_params_t *frame_params) {
 }
 
 
-void draw_frame(const frame_params_t *frame_params,
+void draw_frame(frame_params_t *frame_params,
                 const char char_set[],
                 unsigned int max_char_set_index,
                 region_intensity_t get_region_intensity) {
+    update_terminal_size(frame_params);
+
     for (int cur_char_row=0, cur_pixel_row=0;
          cur_pixel_row < frame_params->trimmed_height;
          ++cur_char_row, cur_pixel_row += frame_params->row_downscale_coef) {

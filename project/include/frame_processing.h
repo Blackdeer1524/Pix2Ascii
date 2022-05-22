@@ -1,8 +1,6 @@
 #ifndef PROJECT_INCLUDE_FRAME_UTILS_H_
 #define PROJECT_INCLUDE_FRAME_UTILS_H_
 
-#include "termstream.h"
-
 typedef struct {
     unsigned char *video_frame;
     int width;

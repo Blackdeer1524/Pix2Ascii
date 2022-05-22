@@ -3,14 +3,14 @@ project(pix2ascii)
 
 set(CMAKE_C_STANDARD 11)
 
-#Set your directories.  The dot representes the root application folder.
-#Thus my the path to my domain folder:
+# Set your directories.  The dot representes the root application folder.
+# Thus my the path to my domain folder:
 set(PROJECT_FOLDER ./project)
 set(INCLUDE_DIR ${PROJECT_FOLDER}/include)
 set(SOURCE_DIR ${PROJECT_FOLDER}/src)
 
 find_package(Curses REQUIRED)
-#Include the directories and now your cpp files will recognize your headers
+# Include the directories and now your cpp files will recognize your headers
 include_directories(${INCLUDE_DIR})
 include_directories(${CURSES_INCLUDE_DIR})
 

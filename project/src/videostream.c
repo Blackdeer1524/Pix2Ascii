@@ -82,24 +82,24 @@ FILE *get_file_stream(const char *file_path) {
 }
 
 int start_player() {
-//    // ==================== aligning player and program output ====================
-//    // We force ffplay (our video player) to write its log to a file called <StartIndicator>.
-//    // It looks like this:
-//
-//    // ffplay started on 2022-05-06 at 21:39:01
-//    //Report written to "StartIndicator"
-//    //Log level: 32
-//    //Command line:
-//    //ffplay <filepath> -hide_banner -loglevel error -nostats -vf showinfo
-//    //[Parsed_showinfo_0 @ 0x7fc458002f00] config in time_base: 1/1000, frame_rate: 30/1
-//    //[Parsed_showinfo_0 @ 0x7fc458002f00] config out time_base: 0/0, frame_rate: 0/0
-//    //[Parsed_showinfo_0 @ 0x7fc458002f00] n:   0 pts:      0 pts_time:0       pos:      ...   <------ The line we
-//    //  ...                                                                                            are looking for
-//    //
-//
-//    // When ffplay starts to process video frames it logs it in the THIRD line
-//    // that starts with symbol '['. That symbol we are constantly looking for.
-//
+    // ==================== aligning player and program output ====================
+    // We force ffplay (our video player) to write its log to a file called <StartIndicator>.
+    // It looks like this:
+
+    // ffplay started on 2022-05-06 at 21:39:01
+    //Report written to "StartIndicator"
+    //Log level: 32
+    //Command line:
+    //ffplay <filepath> -hide_banner -loglevel error -nostats -vf showinfo
+    //[Parsed_showinfo_0 @ 0x7fc458002f00] config in time_base: 1/1000, frame_rate: 30/1
+    //[Parsed_showinfo_0 @ 0x7fc458002f00] config out time_base: 0/0, frame_rate: 0/0
+    //[Parsed_showinfo_0 @ 0x7fc458002f00] n:   0 pts:      0 pts_time:0       pos:      ...   <------ The line we
+    //  ...                                                                                            are looking for
+    //
+
+    // When ffplay starts to process video frames it logs it in the THIRD line
+    // that starts with symbol '['. That symbol we are constantly looking for.
+
 //    FILE *original_source = NULL;
 //    if (reading_type == SOURCE_FILE) {
 //        FILE *ffplay_log_file = fopen("StartIndicator", "w");
@@ -126,6 +126,6 @@ int start_player() {
 //        }
 //        fclose(ffplay_log_file);
 //    }
-//    // ================================================================================
+    // ================================================================================
     return 0;
 }
