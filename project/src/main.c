@@ -85,9 +85,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    unsigned long n_read_items;  // n bytes read from pipe
     debug_info_t current_frame_info;
-
     current_frame_info.uS_elapsed = 0;
     current_frame_info.frame_index = 0;
     current_frame_info.time_frame_index = 0;
@@ -96,10 +94,10 @@ int main(int argc, char *argv[]) {
     size_t prev_uS_elapsed, sleep_time;
     size_t frame_timing_sleep = N_uSECONDS_IN_ONE_SEC / VIDEO_FRAMERATE;
 
+    unsigned long n_read_items;  // n bytes read from pipe
     FILE *logs = fopen("Logs.txt", "w");
 
     timespec startTime;
-
     clock_gettime(CLOCK_MONOTONIC_COARSE, &startTime);
     initscr();
     curs_set(0);
@@ -132,7 +130,8 @@ int main(int argc, char *argv[]) {
                 : current_frame_info.frame_index - current_frame_info.time_frame_index;
 
         if (user_params.reading_type == SOURCE_FILE && current_frame_info.time_frame_index > current_frame_info.frame_index) {
-            fread(frame_data.video_frame, sizeof(char), TOTAL_READ_SIZE * current_frame_info.frame_desync, pipein);
+            for (size_t i=0; i<current_frame_info.frame_desync; ++i)
+                fread(frame_data.video_frame, sizeof(char), TOTAL_READ_SIZE, pipein);
             current_frame_info.frame_index = current_frame_info.time_frame_index;
         } else if (current_frame_info.time_frame_index < current_frame_info.frame_index) {
             usleep((current_frame_info.frame_index - current_frame_info.time_frame_index) * frame_timing_sleep);
