@@ -71,7 +71,6 @@ void debug(const debug_info_t *debug_info,
              );
     printw("\n%s\n", command_buffer);
     fprintf(logs, "%s\n", command_buffer);
-    fflush(logs);
 }
 
 

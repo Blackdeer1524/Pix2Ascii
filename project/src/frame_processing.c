@@ -11,8 +11,8 @@ static void process_block(const frame_params_t *frame_params,
     int down_row = cur_pixel_row + frame_params->row_downscale_coef;
     int right_col = cur_pixel_col + frame_params->col_downscale_coef;
 
-    static unsigned int cashed_frame_width;
-    static unsigned int triple_width;
+    static int cashed_frame_width;
+    static int triple_width;
     if (!cashed_frame_width) {
         triple_width = frame_params->width * 3;
         cashed_frame_width = frame_params->width;
