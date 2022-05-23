@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
 //        return -1;
 //    }
     user_params.reading_type = SOURCE_FILE;
-    user_params.file_path = "./Media/BadApple.mp4";
+    user_params.file_path = "./Media/miku.mp4.webm";
     user_params.charset_data = "N@#W$9876543210?!abc;:+=-,._ ";
     user_params.pixel_block_processing_method = average_chanel_intensity;
 
@@ -85,15 +85,16 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    int n_read_items;  // n bytes read from pipe
-    size_t prev_frame_index = 0, current_frame_index = 0;
-    size_t next_frame_index_measured_by_time = 0;
-    size_t desync = 0, i;
+    unsigned long n_read_items;  // n bytes read from pipe
+    debug_info_t current_frame_info;
 
-    size_t total_elapsed_time, last_total_elapsed_time=0;
-    // !uint64_t int division doesn't work with operand of other type!
+    current_frame_info.uS_elapsed = 0;
+    current_frame_info.frame_index = 0;
+    current_frame_info.time_frame_index = 0;
+    current_frame_info.frame_desync = 0;
+
+    size_t prev_uS_elapsed, sleep_time;
     size_t frame_timing_sleep = N_uSECONDS_IN_ONE_SEC / VIDEO_FRAMERATE;
-    size_t usecs_per_frame=0, sleep_time;
 
     FILE *logs = fopen("Logs.txt", "w");
 
@@ -102,64 +103,39 @@ int main(int argc, char *argv[]) {
     clock_gettime(CLOCK_MONOTONIC_COARSE, &startTime);
     initscr();
     curs_set(0);
-    total_elapsed_time = get_elapsed_time_from_start_us(startTime);
+    current_frame_info.uS_elapsed = get_elapsed_time_from_start_us(startTime);
     while ((n_read_items = fread(frame_data.video_frame, sizeof(char), TOTAL_READ_SIZE, pipein)) || !feof(pipein)) {
         if (n_read_items < TOTAL_READ_SIZE) {
-            total_elapsed_time = get_elapsed_time_from_start_us(startTime);
-            sleep_time = frame_timing_sleep - (total_elapsed_time % frame_timing_sleep);
+            current_frame_info.uS_elapsed = get_elapsed_time_from_start_us(startTime);
+            sleep_time = frame_timing_sleep - (current_frame_info.uS_elapsed % frame_timing_sleep);
             usleep(sleep_time);
             continue;
         }
-        ++current_frame_index;  // current_frame_index is incremented because of fread()
+        ++current_frame_info.frame_index;  // current_frame_index is incremented because of fread()
 
         // ASCII frame preparation
         draw_frame(&frame_data, user_params.charset_data, strlen(user_params.charset_data)-1, user_params.pixel_block_processing_method);
+        debug(&current_frame_info, logs);
         // ASCII frame drawing
         refresh();
+        prev_uS_elapsed = current_frame_info.uS_elapsed;
+        current_frame_info.uS_elapsed = get_elapsed_time_from_start_us(startTime);
+        current_frame_info.cur_frame_processing_time = current_frame_info.uS_elapsed - prev_uS_elapsed;
 
-        // =============================================
-        // debug info about PREVIOUS frame
-        // EL uS    - elapsed time (in microseconds) from the start;
-        // EL S     - elapsed time (in seconds) from the start;
-        // FI       - current Frame Index;
-        // TFI      - current Frame Index measured by elapsed time;
-        // uSPF     - micro (u) Seconds Per Frame (Canonical value);
-        // Cur uSPF - micro (u) Seconds Per Frame (current);
-        // Avg uSPF - micro (u) Seconds Per Frame (Avg);
-        // FPS      - Frames Per Second;
+        sleep_time = frame_timing_sleep - (current_frame_info.uS_elapsed % frame_timing_sleep);
+        current_frame_info.time_frame_index =  // ceil(total_elapsed_time / frame_timing_sleep)
+                current_frame_info.uS_elapsed / frame_timing_sleep +
+                (current_frame_info.uS_elapsed % frame_timing_sleep != 0);
 
-        // "EL uS:%10llu|EL S:%8.2f|FI:%5llu|TFI:%5llu|TFI - FI:%2d|uSPF:%8llu|Cur uSPF:%8llu|Avg uSPF:%8llu|FPS:%8f"
-//        snprintf(command_buffer, COMMAND_BUFFER_SIZE,
-//                 "EL uS:%10zu|EL S:%8.2f|FI:%5zu|TFI:%5zu|abs(TFI - FI):%2zu|uSPF:%8d|Cur uSPF:%8zu|Avg uSPF:%8zu|FPS:%8f",
-//                 total_elapsed_time,
-//                 (double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC,
-//                 prev_frame_index,
-//                 next_frame_index_measured_by_time,
-//                 desync,
-//                 frame_timing_sleep,
-//                 total_elapsed_time - last_total_elapsed_time,
-//                 usecs_per_frame,
-//                 prev_frame_index / ((double) total_elapsed_time / N_uSECONDS_IN_ONE_SEC));
-//        printw("\n%s\n", command_buffer);
-//        fprintf(logs, "%s\n", command_buffer);
-        // =============================================
-        prev_frame_index = current_frame_index;
-        last_total_elapsed_time = total_elapsed_time;
-        total_elapsed_time = get_elapsed_time_from_start_us(startTime);
-        usecs_per_frame  = total_elapsed_time / current_frame_index + (total_elapsed_time % current_frame_index != 0);
-        sleep_time = frame_timing_sleep - (total_elapsed_time % frame_timing_sleep);
-        next_frame_index_measured_by_time =  // ceil(total_elapsed_time / frame_timing_sleep)
-                total_elapsed_time / frame_timing_sleep + (total_elapsed_time % frame_timing_sleep != 0);
+        current_frame_info.frame_desync = (current_frame_info.time_frame_index > current_frame_info.frame_index)
+                ? current_frame_info.time_frame_index - current_frame_info.frame_index
+                : current_frame_info.frame_index - current_frame_info.time_frame_index;
 
-        desync = (next_frame_index_measured_by_time > current_frame_index)
-                ? next_frame_index_measured_by_time - current_frame_index
-                : current_frame_index - next_frame_index_measured_by_time;
-
-        if (user_params.reading_type == SOURCE_FILE && next_frame_index_measured_by_time > current_frame_index) {
-            fread(frame_data.video_frame, sizeof(char), TOTAL_READ_SIZE * desync, pipein);
-            current_frame_index = next_frame_index_measured_by_time;
-        } else if (next_frame_index_measured_by_time < current_frame_index) {
-            usleep((current_frame_index - next_frame_index_measured_by_time) * frame_timing_sleep);
+        if (user_params.reading_type == SOURCE_FILE && current_frame_info.time_frame_index > current_frame_info.frame_index) {
+            fread(frame_data.video_frame, sizeof(char), TOTAL_READ_SIZE * current_frame_info.frame_desync, pipein);
+            current_frame_info.frame_index = current_frame_info.time_frame_index;
+        } else if (current_frame_info.time_frame_index < current_frame_info.frame_index) {
+            usleep((current_frame_info.frame_index - current_frame_info.time_frame_index) * frame_timing_sleep);
         }
         usleep(sleep_time);
     }

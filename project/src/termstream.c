@@ -37,6 +37,43 @@ void update_terminal_size(frame_params_t *frame_params) {
     }
 }
 
+#define COMMAND_BUFFER_SIZE 512
+static char command_buffer[COMMAND_BUFFER_SIZE];
+#include "timestamps.h"
+#include "videostream.h"
+
+void debug(const debug_info_t *debug_info,
+           FILE *logs) {
+    // =============================================
+    // debug info about PREVIOUS frame
+    // EL uS    - elapsed time (in microseconds) from the start;
+    // EL S     - elapsed time (in seconds) from the start;
+    // FI       - current Frame Index;
+    // TFI      - current Frame Index measured by elapsed time;
+    // uSPF     - micro (u) Seconds Per Frame (Canonical value);
+    // Cur uSPF - micro (u) Seconds Per Frame (current);
+    // Avg uSPF - micro (u) Seconds Per Frame (Avg);
+    // FPS      - Frames Per Second;
+    size_t uS_per_frame  = debug_info->uS_elapsed / debug_info->frame_index +
+            (debug_info->uS_elapsed % debug_info->frame_index != 0);
+    // "EL uS:%10llu|EL S:%8.2f|FI:%5llu|TFI:%5llu|TFI - FI:%2d|uSPF:%8llu|Cur uSPF:%8llu|Avg uSPF:%8llu|FPS:%8f"
+    snprintf(command_buffer, COMMAND_BUFFER_SIZE,
+             "EL uS:%10zu|EL S:%8.2f|FI:%5zu|TFI:%5zu|abs(TFI - FI):%2zu|uSPF:%8d|Cur uSPF:%8zu|Avg uSPF:%8zu|FPS:%8Lf",
+             debug_info->uS_elapsed,
+             (double) debug_info->uS_elapsed / N_uSECONDS_IN_ONE_SEC,
+             debug_info->frame_index,
+             debug_info->time_frame_index,
+             debug_info->frame_desync,
+             N_uSECONDS_IN_ONE_SEC / VIDEO_FRAMERATE,
+             debug_info->cur_frame_processing_time,
+             uS_per_frame,
+             debug_info->frame_index / ((long double) debug_info->uS_elapsed / N_uSECONDS_IN_ONE_SEC)
+             );
+    printw("\n%s\n", command_buffer);
+    fprintf(logs, "%s\n", command_buffer);
+    fflush(logs);
+}
+
 
 void draw_frame(frame_params_t *frame_params,
                 const char char_set[],
