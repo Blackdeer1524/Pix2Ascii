@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "../include/video_stream.h"
+#include "../include/videostream.h"
 #include "../include/error.h"
 
 #define COMMAND_BUFFER_SIZE 512

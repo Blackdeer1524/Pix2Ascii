@@ -6,7 +6,7 @@
 #include <assert.h>
 #include <time.h>
 
-#include "../include/video_stream.h"
+#include "../include/videostream.h"
 #include "../include/frame_utils.h"
 #include "../include/timestamps.h"
 #include "../include/argparsing.h"
