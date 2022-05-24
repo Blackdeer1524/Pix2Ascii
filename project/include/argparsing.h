@@ -15,6 +15,8 @@ typedef struct {
     char *file_path;
     charset_data_t charset_data;
     region_intensity_t pixel_block_processing_method;
+    int color_flag;
+    int n_stream_loops;
 } user_params_t;
 
 int argparse(user_params_t *user_params, int argc, char *argv[]);

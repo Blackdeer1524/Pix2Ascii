@@ -60,11 +60,11 @@ FILE *get_camera_stream(int frame_width, int frame_height) {
 }
 
 
-FILE *get_file_stream(const char *file_path) {
+FILE *get_file_stream(const char *file_path, int n_stream_loops) {
     int n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
-                               "ffmpeg -i %s -f image2pipe -hide_banner -loglevel error "
+                               "ffmpeg -stream_loop %d -i %s -f image2pipe -hide_banner -loglevel error "
                                "-vf fps=%d -vcodec rawvideo -pix_fmt rgb24 -",
-                               file_path, VIDEO_FRAMERATE);
+                               n_stream_loops, file_path, VIDEO_FRAMERATE);
     if (n_chars_printed < 0) {
         fprintf(stderr, "Error preparing ffmpeg command!\n");
         return NULL;

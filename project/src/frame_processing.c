@@ -2,7 +2,7 @@
 #include "utils.h"
 
 
-static void process_block(const frame_params_t *frame_params,
+void process_block(const frame_params_t *frame_params,
                           int cur_pixel_row,
                           int cur_pixel_col,
                           unsigned int *r, unsigned int *g, unsigned int *b) {

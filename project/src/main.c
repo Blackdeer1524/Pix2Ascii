@@ -9,12 +9,12 @@
 #include "termstream.h"
 
 
-void close_pipe(FILE *pipeline) {
+static void close_pipe(FILE *pipeline) {
     fflush(pipeline);
     pclose(pipeline);
 }
 
-void free_space(unsigned char *video_frame, FILE *pipeline, FILE *logs_file){
+static void free_space(unsigned char *video_frame, FILE *pipeline, FILE *logs_file){
     free(video_frame);
     close_pipe(pipeline);
     fflush(logs_file);
@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
     frame_data.width = 1280;
     frame_data.height = 720;
     if (user_params.reading_type == SOURCE_FILE) {
-        if (!(pipein = get_file_stream(user_params.file_path))) {
+        if (!(pipein = get_file_stream(user_params.file_path, user_params.n_stream_loops))) {
             // ...
             return 1;
         }
@@ -77,6 +77,9 @@ int main(int argc, char *argv[]) {
     FILE *logs = fopen("Logs.txt", "w");
 
     initscr();
+    draw_frame_t draw_frame = (user_params.color_flag) ? (draw_color_frame) : (draw_symbol_frame);
+    start_color();
+    set_color_pairs();
     curs_set(0);
     current_frame_info.uS_elapsed = get_elapsed_time_from_start_us(startTime);
     while ((n_read_items = fread(frame_data.video_frame, sizeof(char), TOTAL_READ_SIZE, pipein)) || !feof(pipein)) {
@@ -89,8 +92,10 @@ int main(int argc, char *argv[]) {
         ++current_frame_info.frame_index;  // current_frame_index is incremented because of fread()
 
         // ASCII frame preparation
-        draw_frame(&frame_data, user_params.charset_data.char_set, user_params.charset_data.last_index, 
-                   user_params.pixel_block_processing_method);
+        // draw_frame(&frame_data, user_params.charset_data.char_set, user_params.charset_data.last_index,
+        //            user_params.pixel_block_processing_method);
+        draw_frame(&frame_data, user_params.charset_data.char_set, user_params.charset_data.last_index,
+                         user_params.pixel_block_processing_method);
         debug(&current_frame_info, logs);
         // ASCII frame drawing
         refresh();

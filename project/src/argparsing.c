@@ -1,7 +1,10 @@
-#include "argparsing.h"
-#include "frame_processing.h"
 #include <stdio.h>
 #include <string.h>
+#include <ncurses.h>
+#include <stdlib.h>
+
+#include "argparsing.h"
+#include "frame_processing.h"
 
 
 typedef enum {CHARSET_SHARP, CHARSET_OPTIMAL, CHARSET_STANDART, CHARSET_LONG, CHARSET_N} t_char_set;
@@ -20,10 +23,14 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
     // flags:
     // -f <Media path>
     // -c : (camera support)
-    // -color [sharp | optimal | standard | long] : ascii set
+    // -set [sharp | optimal | standard | long] : ascii set
     // -method [average | yuv] : grayscale conversion methods
+    // -color : enable color support
+    // -nl : loop video; -1 for infinite loop
     user_params->charset_data = charsets[CHARSET_OPTIMAL];
     user_params->pixel_block_processing_method = average_chanel_intensity;
+    user_params->color_flag = 0;
+    user_params->n_stream_loops = 0;
     for (int i=1; i<argc;) {
         if (argv[i][0] != '-') {
             fprintf(stderr, "Invalid argument! Value is given without a corresponding flag!\n");
@@ -42,9 +49,9 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
                 user_params->file_path = argv[i + 1];
                 i += 2;
             }
-        } else if (!strcmp(&argv[i][1], "color")) {
+        } else if (!strcmp(&argv[i][1], "set")) {
             if (i == argc - 1 || argv[i + 1][0] == '-') {
-                fprintf(stderr, "Invalid argument! Color scheme is not given!\n");
+                fprintf(stderr, "Invalid argument! ASCII set is not given!\n");
                 return 1;
             }
 
@@ -75,6 +82,19 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
                 fprintf(stderr, "Invalid argument! Unsupported grayscale method!\n");
                 return 1;
             }
+            i += 2;
+        } else if (!strcmp(&argv[i][1], "color")) {
+            if (has_colors()) {
+                fprintf(stderr, "Sorry, but your terminal doesn't support colors!\n");
+                return 1;
+            } else if (can_change_color()) {
+                fprintf(stderr, "Sorry, but your terminal doesn't support color change!\n");
+                return 1;
+            }
+            user_params->color_flag = 1;
+            ++i;
+        } else if (!strcmp(&argv[i][1], "nl")) {
+            user_params->n_stream_loops = atoi(argv[i + 1]);
             i += 2;
         } else {
             fprintf(stderr, "Unknown flag!\n");
