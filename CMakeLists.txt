@@ -31,5 +31,5 @@ set(
 )
 
 add_compile_options(-lncurses)
-add_executable(program ${SOURCE_FILES})
-target_link_libraries(program ${CURSES_LIBRARIES})
+add_executable(pix2ascii ${SOURCE_FILES})
+target_link_libraries(pix2ascii ${CURSES_LIBRARIES})

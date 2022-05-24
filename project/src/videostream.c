@@ -81,13 +81,14 @@ FILE *get_file_stream(const char *file_path, int n_stream_loops) {
     return video_stream;
 }
 
-int start_player(char *file_path) {
+int start_player(char *file_path, int n_stream_loops) {
     FILE *ffplay_log_file = NULL;
     FILE *tmp = NULL;
 
     snprintf(command_buffer, COMMAND_BUFFER_SIZE,
              "FFREPORT=file=StartIndicator:level=32 "
-             "ffplay %s -hide_banner -loglevel error -nostats -vf showinfo -framedrop", file_path);
+             "ffplay -loop %d %s -hide_banner -loglevel error -nostats -vf showinfo -framedrop ",
+             n_stream_loops, file_path);
 
     if (!(tmp = popen(command_buffer, "r"))) {
         return 1;
