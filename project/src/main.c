@@ -1,30 +1,12 @@
-#include <stdio.h>
 #include <ncurses.h>
-#include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <assert.h>
-#include <time.h>
 
 #include "videostream.h"
 #include "frame_processing.h"
 #include "timestamps.h"
 #include "argparsing.h"
 #include "termstream.h"
-
-
-typedef struct {
-    char *char_set;
-    unsigned int last_index;
-} char_set_data;
-
-typedef enum {CHARSET_SHARP, CHARSET_OPTIMAL, CHARSET_STANDART, CHARSET_LONG, CHARSET_N} t_char_set;
-static char_set_data char_sets[CHARSET_N] = {
-        {"@%#*+=-:. ", 9},
-        {"NBUa1|^` ", 8},
-        {"N@#W$9876543210?!abc;:+=-,._ ", 28},
-        {"$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. ", 69}
-};
 
 
 void close_pipe(FILE *pipeline) {
@@ -41,14 +23,10 @@ void free_space(unsigned char *video_frame, FILE *pipeline, FILE *logs_file){
 
 int main(int argc, char *argv[]) {
     user_params_t user_params;
-//    if (argparse(&user_params, argc, argv)) {
-//        // ...
-//        return -1;
-//    }
-    user_params.reading_type = SOURCE_FILE;
-    user_params.file_path = "./Media/miku.mp4.webm";
-    user_params.charset_data = "N@#W$9876543210?!abc;:+=-,._ ";
-    user_params.pixel_block_processing_method = average_chanel_intensity;
+    if (argparse(&user_params, argc, argv)) {
+        // ...
+        return 1;
+    }
 
     FILE *pipein = NULL;
     frame_params_t frame_data;
@@ -58,31 +36,31 @@ int main(int argc, char *argv[]) {
     if (user_params.reading_type == SOURCE_FILE) {
         if (!(pipein = get_file_stream(user_params.file_path))) {
             // ...
-            return -1;
+            return 1;
         }
         if (get_frame_data(user_params.file_path, &frame_data.width, &frame_data.height)) {
             // ...
-            return -1;
+            return 1;
         }
         if (start_player()) {
             // ...
-            return -1;
+            return 1;
         }
     } else if (user_params.reading_type == SOURCE_CAMERA) {
         if (!(pipein = get_camera_stream(frame_data.width, frame_data.height))) {
             // ...
-            return -1;
+            return 1;
         }
     } else {
         // ...
-        return -1;
+        return 1;
     }
-    assert(pipein);
+
     int TOTAL_READ_SIZE = frame_data.width * frame_data.height * 3;
     frame_data.video_frame = malloc(sizeof(unsigned char) * TOTAL_READ_SIZE);
     if (!frame_data.video_frame) {
         // ...
-        return -1;
+        return 1;
     }
 
     debug_info_t current_frame_info;
@@ -112,7 +90,8 @@ int main(int argc, char *argv[]) {
         ++current_frame_info.frame_index;  // current_frame_index is incremented because of fread()
 
         // ASCII frame preparation
-        draw_frame(&frame_data, user_params.charset_data, strlen(user_params.charset_data)-1, user_params.pixel_block_processing_method);
+        draw_frame(&frame_data, user_params.charset_data.char_set, user_params.charset_data.last_index, 
+                   user_params.pixel_block_processing_method);
         debug(&current_frame_info, logs);
         // ASCII frame drawing
         refresh();
