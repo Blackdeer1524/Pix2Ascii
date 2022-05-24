@@ -2,13 +2,10 @@
 // Created by blackdeer on 5/17/22.
 //
 #include <stdio.h>
-#include <stdlib.h>
 
-#include "../include/videostream.h"
-#include "../include/error.h"
+#include "videostream.h"
 
 #define COMMAND_BUFFER_SIZE 512
-
 static char command_buffer[COMMAND_BUFFER_SIZE];
 
 int get_frame_data(const char *filepath, int *frame_width, int *frame_height) {
@@ -93,22 +90,22 @@ int start_player(char *file_path) {
              "ffplay %s -hide_banner -loglevel error -nostats -vf showinfo -framedrop", file_path);
 
     if (!(tmp = popen(command_buffer, "r"))) {
-        return POPEN_ERROR;
+        return 1;
     }
 
     if (!(ffplay_log_file = fopen("StartIndicator", "w+"))) {
-        return FOPEN_ERROR;
+        return 1;
     }
 
     int brackets_count = 0;
     while (brackets_count < 3) {
-        char current_symbol;
+        int current_symbol;
         if ((current_symbol = getc(ffplay_log_file)) == EOF) {
             size_t current_file_position = ftell(ffplay_log_file) - 1;
 
             fclose(ffplay_log_file);
             if (!(ffplay_log_file = fopen("StartIndicator", "r"))) {
-                return FOPEN_ERROR;
+                return 1;
             }
 
             fseek(ffplay_log_file, current_file_position, SEEK_SET);
@@ -118,5 +115,5 @@ int start_player(char *file_path) {
     }
     fclose(ffplay_log_file);
 
-    return SUCCESS;
+    return 0;
 }
