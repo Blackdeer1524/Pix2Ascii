@@ -27,7 +27,6 @@ int main(int argc, char *argv[]) {
         // ...
         return 1;
     }
-
     FILE *pipein = NULL;
     frame_params_t frame_data;
 
@@ -42,7 +41,7 @@ int main(int argc, char *argv[]) {
             // ...
             return 1;
         }
-        if (start_player()) {
+        if (start_player(user_params.file_path)) {
             // ...
             return 1;
         }
@@ -55,6 +54,8 @@ int main(int argc, char *argv[]) {
         // ...
         return 1;
     }
+    timespec startTime;
+    clock_gettime(CLOCK_MONOTONIC_COARSE, &startTime);
 
     int TOTAL_READ_SIZE = frame_data.width * frame_data.height * 3;
     frame_data.video_frame = malloc(sizeof(unsigned char) * TOTAL_READ_SIZE);
@@ -75,8 +76,6 @@ int main(int argc, char *argv[]) {
     unsigned long n_read_items;  // n bytes read from pipe
     FILE *logs = fopen("Logs.txt", "w");
 
-    timespec startTime;
-    clock_gettime(CLOCK_MONOTONIC_COARSE, &startTime);
     initscr();
     draw_frame_t draw_frame = (user_params.color_flag) ? (draw_color_frame) : (draw_symbol_frame);
     start_color();

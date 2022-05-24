@@ -41,7 +41,7 @@ FILE *get_camera_stream(int frame_width, int frame_height) {
     int n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
                                "ffmpeg -hide_banner -loglevel error "
                                "-f v4l2 -i /dev/video0 -f image2pipe "
-                               "-vf fps=%d -vf scale=%u:%u -vcodec rawvideo -pix_fmt rgb24 -",
+                               "-vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -",
                                VIDEO_FRAMERATE, frame_width, frame_height);
     if (n_chars_printed < 0) {
         fprintf(stderr, "Error setting up camera!\n");
@@ -81,51 +81,39 @@ FILE *get_file_stream(const char *file_path, int n_stream_loops) {
     return video_stream;
 }
 
-int start_player() {
-    // ==================== aligning player and program output ====================
-    // We force ffplay (our video player) to write its log to a file called <StartIndicator>.
-    // It looks like this:
+int start_player(char *file_path) {
+    FILE *ffplay_log_file = NULL;
+    FILE *tmp = NULL;
 
-    // ffplay started on 2022-05-06 at 21:39:01
-    //Report written to "StartIndicator"
-    //Log level: 32
-    //Command line:
-    //ffplay <filepath> -hide_banner -loglevel error -nostats -vf showinfo
-    //[Parsed_showinfo_0 @ 0x7fc458002f00] config in time_base: 1/1000, frame_rate: 30/1
-    //[Parsed_showinfo_0 @ 0x7fc458002f00] config out time_base: 0/0, frame_rate: 0/0
-    //[Parsed_showinfo_0 @ 0x7fc458002f00] n:   0 pts:      0 pts_time:0       pos:      ...   <------ The line we
-    //  ...                                                                                            are looking for
-    //
+    snprintf(command_buffer, COMMAND_BUFFER_SIZE,
+             "FFREPORT=file=StartIndicator:level=32 "
+             "ffplay %s -hide_banner -loglevel error -nostats -vf showinfo -framedrop", file_path);
 
-    // When ffplay starts to process video frames it logs it in the THIRD line
-    // that starts with symbol '['. That symbol we are constantly looking for.
+    if (!(tmp = popen(command_buffer, "r"))) {
+        return 1;
+    }
 
-//    FILE *original_source = NULL;
-//    if (reading_type == SOURCE_FILE) {
-//        FILE *ffplay_log_file = fopen("StartIndicator", "w");
-//        assert(ffplay_log_file);
-//        fclose(ffplay_log_file);
-//        snprintf(command_buffer, COMMAND_BUFFER_SIZE,
-//                 "FFREPORT=file=StartIndicator:level=32 "
-//                 "ffplay %s -hide_banner -loglevel error -nostats -vf showinfo -framedrop", filepath);
-//        // Через fork() и exec (?)
-//        original_source = popen(command_buffer, "r");
-//
-//        ffplay_log_file = fopen("StartIndicator", "r");
-//        int n_bracket_encounters = 0;
-//        while (n_bracket_encounters < 3) {
-//            char current_file_char;
-//            if ((current_file_char = getc(ffplay_log_file)) == EOF) {
-//                long int current_file_position = ftell(ffplay_log_file)-1;
-//                fclose(ffplay_log_file);
-//                ffplay_log_file = fopen("StartIndicator", "r");
-//                fseek(ffplay_log_file, current_file_position, SEEK_SET);
-//            }
-//            if (current_file_char == '[')
-//                ++n_bracket_encounters;
-//        }
-//        fclose(ffplay_log_file);
-//    }
-    // ================================================================================
+    if (!(ffplay_log_file = fopen("StartIndicator", "w+"))) {
+        return 1;
+    }
+
+    int brackets_count = 0;
+    while (brackets_count < 3) {
+        int current_symbol;
+        if ((current_symbol = getc(ffplay_log_file)) == EOF) {
+            size_t current_file_position = ftell(ffplay_log_file) - 1;
+
+            fclose(ffplay_log_file);
+            if (!(ffplay_log_file = fopen("StartIndicator", "r"))) {
+                return 1;
+            }
+
+            fseek(ffplay_log_file, current_file_position, SEEK_SET);
+        } else if (current_symbol == '[') {
+            ++brackets_count;
+        }
+    }
+    fclose(ffplay_log_file);
+
     return 0;
 }
