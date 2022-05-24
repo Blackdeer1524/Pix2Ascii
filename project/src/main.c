@@ -18,7 +18,14 @@ typedef struct {
     unsigned int last_index;
 } char_set_data;
 
-typedef enum {CHARSET_SHARP, CHARSET_OPTIMAL, CHARSET_STANDART, CHARSET_LONG, CHARSET_N} t_char_set;
+typedef enum {
+    CHARSET_SHARP,
+    CHARSET_OPTIMAL,
+    CHARSET_STANDART,
+    CHARSET_LONG,
+    CHARSET_N
+} t_char_set;
+
 static char_set_data char_sets[CHARSET_N] = {
         {"@%#*+=-:. ", 9},
         {"NBUa1|^` ", 8},
@@ -42,12 +49,11 @@ void free_space(unsigned char *video_frame, FILE *pipeline, FILE *logs_file){
 int main(int argc, char *argv[]) {
     user_params_t user_params;
 
-    if (argparse(&user_params, argc, argv)) {
+    if (arg_parse(&user_params, argc, argv)) {
         // ...
         return ARG_COUNT_ERROR;
     }
 
-    user_params.file_path = "./Media/BadApple.mp4";
     user_params.charset_data = "N@#W$9876543210?!abc;:+=-,._ ";
     user_params.pixel_block_processing_method = average_chanel_intensity;
 
@@ -62,11 +68,9 @@ int main(int argc, char *argv[]) {
             // ...
             return -1;
         }
-        if (user_params.reading_type == SOURCE_FILE) {
-            if (start_player(user_params.file_path)) {
-                // ...
-                return -1;
-            }
+        if (start_player(user_params.file_path)) {
+            // ...
+            return -1;
         }
     } else if (user_params.reading_type == SOURCE_CAMERA) {
         if (!(pipein = get_camera_stream(frame_data.width, frame_data.height))) {
