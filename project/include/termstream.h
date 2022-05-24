@@ -15,12 +15,17 @@ typedef struct {
 
 void update_terminal_size(frame_params_t *frame_params);
 
-void draw_frame(frame_params_t *frame_params,
-                const char char_set[],
-                unsigned int max_char_set_index,
-                region_intensity_t get_region_intensity);
+void draw_symbol_frame(frame_params_t *frame_params,
+                       const char char_set[],
+                       unsigned int max_char_set_index,
+                       region_intensity_t get_region_intensity);
 
 void set_color_pairs();
+
+typedef void (*draw_frame_t)(frame_params_t *frame_params,
+                             const char char_set[],
+                             unsigned int max_char_set_index,
+                             region_intensity_t get_region_intensity);
 
 void draw_color_frame(frame_params_t *frame_params,
                 const char char_set[],

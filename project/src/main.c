@@ -78,6 +78,7 @@ int main(int argc, char *argv[]) {
     timespec startTime;
     clock_gettime(CLOCK_MONOTONIC_COARSE, &startTime);
     initscr();
+    draw_frame_t draw_frame = (user_params.color_flag) ? (draw_color_frame) : (draw_symbol_frame);
     start_color();
     set_color_pairs();
     curs_set(0);
@@ -94,7 +95,7 @@ int main(int argc, char *argv[]) {
         // ASCII frame preparation
         // draw_frame(&frame_data, user_params.charset_data.char_set, user_params.charset_data.last_index,
         //            user_params.pixel_block_processing_method);
-        draw_color_frame(&frame_data, user_params.charset_data.char_set, user_params.charset_data.last_index,
+        draw_frame(&frame_data, user_params.charset_data.char_set, user_params.charset_data.last_index,
                          user_params.pixel_block_processing_method);
         debug(&current_frame_info, logs);
         // ASCII frame drawing

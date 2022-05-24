@@ -87,10 +87,10 @@ void debug(const debug_info_t *debug_info,
 }
 
 
-void draw_frame(frame_params_t *frame_params,
-                const char char_set[],
-                unsigned int max_char_set_index,
-                region_intensity_t get_region_intensity) {
+void draw_symbol_frame(frame_params_t *frame_params,
+                       const char char_set[],
+                       unsigned int max_char_set_index,
+                       region_intensity_t get_region_intensity) {
     update_terminal_size(frame_params);
 
     for (int cur_char_row=0, cur_pixel_row=0;
@@ -100,8 +100,8 @@ void draw_frame(frame_params_t *frame_params,
         for (int cur_pixel_col=0;
              cur_pixel_col < frame_params->trimmed_width;
              cur_pixel_col += frame_params->col_downscale_coef)
-            addch(get_char_given_intensity(
-                    get_region_intensity(frame_params, cur_pixel_row, cur_pixel_col), char_set, max_char_set_index));
+            addch(get_char_given_intensity(get_region_intensity(frame_params, cur_pixel_row, cur_pixel_col),
+                                           char_set, max_char_set_index));
     }
 }
 
@@ -112,7 +112,7 @@ void set_color_pairs() {
                 init_color(r * RED_MULTIPLIER + g * GREEN_MULTIPLIER + b * BLUE_MULTIPLIER + 1,
                            r * COLOR_6_UNITS_MULTIPLIER, g * COLOR_7_UNITS_MULTIPLIER, b * COLOR_6_UNITS_MULTIPLIER);
                 init_pair(r * RED_MULTIPLIER + g * GREEN_MULTIPLIER + b * BLUE_MULTIPLIER + 1,
-                          252 - (r * RED_MULTIPLIER + g * GREEN_MULTIPLIER + b * BLUE_MULTIPLIER + 1),
+                          WHITE_COLOR - (r * RED_MULTIPLIER + g * GREEN_MULTIPLIER + b * BLUE_MULTIPLIER + 1),
                           r * RED_MULTIPLIER + g * GREEN_MULTIPLIER + b * BLUE_MULTIPLIER + 1);
             }
         }
@@ -152,35 +152,3 @@ void draw_color_frame(frame_params_t *frame_params,
     }
     attron(COLOR_PAIR(TEXT_COLOR_PAIR));
 }
-
-/*
-void draw_color_frame(const unsigned char *video_frame,
-                      unsigned int frame_width,
-                      unsigned int trimmed_height,
-                      unsigned int trimmed_width,
-                      unsigned int row_downscale_coef,
-                      unsigned int col_downscale_coef,
-                      unsigned int left_border_indent,
-                      const char char_set[],
-                      unsigned int max_char_set_index,
-                      region_intensity_t get_region_intensity) {
-    unsigned int r, g, b;
-    for (unsigned int cur_char_row = 0, cur_pixel_row = 0;
-         cur_pixel_row < trimmed_height;
-         ++cur_char_row, cur_pixel_row += row_downscale_coef) {
-        move(cur_char_row, left_border_indent);
-        for (unsigned int cur_pixel_col = 0; cur_pixel_col < trimmed_width; cur_pixel_col += col_downscale_coef) {
-            // TODO: fix double process_block call (narrowing in get_region_intensity)
-            process_block(video_frame, frame_width, cur_pixel_row, cur_pixel_col,
-                          row_downscale_coef, col_downscale_coef, &r, &g, &b);
-            attron(COLOR_PAIR(get_6x7x6_color_index(r, g, b, row_downscale_coef, col_downscale_coef)));
-            addch(get_char_given_intensity(get_region_intensity(video_frame,
-                                                                frame_width,
-                                                                cur_pixel_row, cur_pixel_col,
-                                                                row_downscale_coef, col_downscale_coef),
-                                           char_set, max_char_set_index));
-            attroff(COLOR_PAIR(get_6x7x6_color_index(r, g, b, row_downscale_coef, col_downscale_coef)));
-        }
-    }
-}
-*/
