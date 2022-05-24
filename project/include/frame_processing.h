@@ -12,6 +12,11 @@ typedef struct {
     int left_border_indent;
 } frame_params_t;
 
+void process_block(const frame_params_t *frame_params,
+                   int cur_pixel_row,
+                   int cur_pixel_col,
+                   unsigned int *r, unsigned int *g, unsigned int *b);
+
 typedef unsigned char (*region_intensity_t)(const frame_params_t *frame_params,
                                             int cur_pixel_row,
                                             int cur_pixel_col);
