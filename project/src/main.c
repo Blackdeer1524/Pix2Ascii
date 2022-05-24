@@ -54,6 +54,8 @@ int main(int argc, char *argv[]) {
         // ...
         return 1;
     }
+    timespec startTime;
+    clock_gettime(CLOCK_MONOTONIC_COARSE, &startTime);
 
     int TOTAL_READ_SIZE = frame_data.width * frame_data.height * 3;
     frame_data.video_frame = malloc(sizeof(unsigned char) * TOTAL_READ_SIZE);
@@ -74,8 +76,6 @@ int main(int argc, char *argv[]) {
     unsigned long n_read_items;  // n bytes read from pipe
     FILE *logs = fopen("Logs.txt", "w");
 
-    timespec startTime;
-    clock_gettime(CLOCK_MONOTONIC_COARSE, &startTime);
     initscr();
     curs_set(0);
     current_frame_info.uS_elapsed = get_elapsed_time_from_start_us(startTime);
