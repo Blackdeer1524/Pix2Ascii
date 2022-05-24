@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
     frame_data.width = 1280;
     frame_data.height = 720;
     if (user_params.reading_type == SOURCE_FILE) {
-        if (!(pipein = get_file_stream(user_params.file_path))) {
+        if (!(pipein = get_file_stream(user_params.file_path, user_params.n_stream_loops))) {
             // ...
             return 1;
         }

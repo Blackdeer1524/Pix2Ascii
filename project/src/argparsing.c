@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ncurses.h>
+#include <stdlib.h>
 
 #include "argparsing.h"
 #include "frame_processing.h"
@@ -25,9 +26,11 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
     // -set [sharp | optimal | standard | long] : ascii set
     // -method [average | yuv] : grayscale conversion methods
     // -color : enable color support
+    // -nl : loop video; -1 for infinite loop
     user_params->charset_data = charsets[CHARSET_OPTIMAL];
     user_params->pixel_block_processing_method = average_chanel_intensity;
     user_params->color_flag = 0;
+    user_params->n_stream_loops = 0;
     for (int i=1; i<argc;) {
         if (argv[i][0] != '-') {
             fprintf(stderr, "Invalid argument! Value is given without a corresponding flag!\n");
@@ -90,6 +93,9 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
             }
             user_params->color_flag = 1;
             ++i;
+        } else if (!strcmp(&argv[i][1], "nl")) {
+            user_params->n_stream_loops = atoi(argv[i + 1]);
+            i += 2;
         } else {
             fprintf(stderr, "Unknown flag!\n");
             return 1;
