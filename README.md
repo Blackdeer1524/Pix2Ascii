@@ -33,18 +33,4 @@ Example:
 ```console
 ~$ ./program -f <filepath> 
 ```
-
-flags:
-
-* -f [media path]
-  
-* -c : (camera support)
-  
-* -set [sharp | optimal | standard | long] : ascii set
-  
-* -method [average | yuv] : grayscale conversion methods
-  
-* -color : enable color support
-  
-* -nl : loop video; -1 for infinite loop
   
