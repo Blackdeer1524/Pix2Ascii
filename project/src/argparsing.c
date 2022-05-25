@@ -15,6 +15,9 @@ static charset_data_t charsets[CHARSET_N] = {
         {"$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. ", 69}
 };
 
+typedef enum {PLAYER_OFF, PLAYER_VIDEO, PLAYER_AUDIO, PLAYER_ALL, PLAYER_COUNT} player_t;
+static char *player_flags[PLAYER_COUNT] = {NULL, "-an", "-nodisp", ""};
+
 int argparse(user_params_t *user_params, int argc, char *argv[]) {
     if (argc == 1) {
         fprintf(stderr, "Bad number of arguments!\n");
@@ -27,10 +30,12 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
     // -method [average | yuv] : grayscale conversion methods
     // -color : enable color support
     // -nl : loop video; -1 for infinite loop
+    // -player [0 - off; 1 - only video; 2 - only audio; 3 - video and audio]
     user_params->charset_data = charsets[CHARSET_OPTIMAL];
     user_params->pixel_block_processing_method = average_chanel_intensity;
     user_params->color_flag = 0;
     user_params->n_stream_loops = 0;
+    user_params->player_flag = NULL;
     for (int i=1; i<argc;) {
         if (argv[i][0] != '-') {
             fprintf(stderr, "Invalid argument! Value is given without a corresponding flag!\n");
@@ -95,6 +100,25 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
             ++i;
         } else if (!strcmp(&argv[i][1], "nl")) {
             user_params->n_stream_loops = atoi(argv[i + 1]);
+            i += 2;
+        } else if (!strcmp(&argv[i][1], "player")) {
+            if (i == argc - 1 || argv[i + 1][0] == '-') {
+                fprintf(stderr, "Invalid argument! Player type wasn't given!\n");
+                return 1;
+            }
+
+            if (!strcmp(argv[i + 1], "off")) {
+                user_params->player_flag = player_flags[PLAYER_OFF];
+            } else if (!strcmp(argv[i + 1], "video")) {
+                user_params->player_flag = player_flags[PLAYER_VIDEO];
+            } else if (!strcmp(argv[i + 1], "audio")) {
+                user_params->player_flag = player_flags[PLAYER_AUDIO];
+            } else if (!strcmp(argv[i + 1], "all")) {
+                user_params->player_flag = player_flags[PLAYER_ALL];
+            } else {
+                fprintf(stderr, "Invalid argument! Unsupported player type!\n");
+                return 1;
+            }
             i += 2;
         } else {
             fprintf(stderr, "Unknown flag!\n");

@@ -17,6 +17,7 @@ typedef struct {
     region_intensity_t pixel_block_processing_method;
     int color_flag;
     int n_stream_loops;
+    char *player_flag;
 } user_params_t;
 
 int argparse(user_params_t *user_params, int argc, char *argv[]);

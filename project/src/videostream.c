@@ -2,7 +2,9 @@
 // Created by blackdeer on 5/17/22.
 //
 #include <stdio.h>
-
+#include<stdlib.h>
+#include<unistd.h>
+#include <signal.h>
 #include "videostream.h"
 
 #define COMMAND_BUFFER_SIZE 512
@@ -81,15 +83,18 @@ FILE *get_file_stream(const char *file_path, int n_stream_loops) {
     return video_stream;
 }
 
-int start_player(char *file_path, int n_stream_loops) {
+
+int start_player(char *file_path, int n_stream_loops, char *player_type) {
+    if (!player_type)
+        return 0;
+
     FILE *ffplay_log_file = NULL;
     FILE *tmp = NULL;
 
     snprintf(command_buffer, COMMAND_BUFFER_SIZE,
              "FFREPORT=file=StartIndicator:level=32 "
-             "ffplay -loop %d %s -hide_banner -loglevel error -nostats -vf showinfo -framedrop ",
-             n_stream_loops, file_path);
-
+             "ffplay %s -loop %d %s -hide_banner -loglevel error -nostats -vf showinfo -framedrop ",
+             player_type, n_stream_loops, file_path);
     if (!(tmp = popen(command_buffer, "r"))) {
         return 1;
     }

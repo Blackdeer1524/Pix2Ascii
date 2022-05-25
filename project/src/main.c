@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
             // ...
             return 1;
         }
-        if (start_player(user_params.file_path, user_params.n_stream_loops + 1)) {
+        if (start_player(user_params.file_path, user_params.n_stream_loops + 1, user_params.player_flag)) {
             // ...
             return 1;
         }
