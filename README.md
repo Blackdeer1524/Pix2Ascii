@@ -24,3 +24,27 @@ Simple Image to Ascii graphics converter written in C
  * sudo apt install ffmpeg
  * sudo apt-get install libncursesw5-dev
  * sudo apt install v4l-utils
+
+## Usage
+
+Compile with cmake and run 
+
+Example:
+```console
+~$ ./program -f <filepath> 
+```
+
+flags:
+
+* -f [media path]
+  
+* -c : (camera support)
+  
+* -set [sharp | optimal | standard | long] : ascii set
+  
+* -method [average | yuv] : grayscale conversion methods
+  
+* -color : enable color support
+  
+* -nl : loop video; -1 for infinite loop
+  
