@@ -111,9 +111,7 @@ static int get_color_index(unsigned int r, unsigned int g, unsigned int b) {
     b / DEPTH_6_CONVERT_DIV + 1;
 }
 
-void simple_display(char symbol,
-                    const kernel_params_t *kernel_params,
-                    unsigned int r, unsigned int g, unsigned int b) {
+void simple_display(char symbol, unsigned int r, unsigned int g, unsigned int b) {
     addch(symbol);
 }
 

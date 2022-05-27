@@ -22,14 +22,9 @@ void set_color_pairs();
 typedef void (*display_symbol_t)(char symbol,
                                  unsigned int r, unsigned int g, unsigned int b);
 
-void simple_display(char symbol,
-                    const kernel_params_t *kernel_params,
-                    unsigned int r, unsigned int g, unsigned int b);
+void simple_display(char symbol, unsigned int r, unsigned int g, unsigned int b);
 
-void colored_display(char symbol,
-                     unsigned int r, unsigned int g, unsigned int b);
-
-
+void colored_display(char symbol, unsigned int r, unsigned int g, unsigned int b);
 
 void draw_frame(const frame_params_t *frame_params,
                 const kernel_params_t *kernel_params,
