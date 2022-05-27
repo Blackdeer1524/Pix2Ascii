@@ -31,11 +31,13 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
     // -color : enable color support
     // -nl : loop video; -1 for infinite loop
     // -player [0 - off; 1 - only video; 2 - only audio; 3 - video and audio]
+    // -filter [naive | gauss]
     user_params->charset_data = charsets[CHARSET_OPTIMAL];
     user_params->pixel_block_processing_method = average_chanel_intensity;
     user_params->color_flag = 0;
     user_params->n_stream_loops = 0;
     user_params->player_flag = NULL;
+    user_params->kernel_update = update_gaussian;
     for (int i=1; i<argc;) {
         if (argv[i][0] != '-') {
             fprintf(stderr, "Invalid argument! Value is given without a corresponding flag!\n");
@@ -117,6 +119,21 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
                 user_params->player_flag = player_flags[PLAYER_ALL];
             } else {
                 fprintf(stderr, "Invalid argument! Unsupported player type!\n");
+                return 1;
+            }
+            i += 2;
+        } else if (!strcmp(&argv[i][1], "filter")) {
+            if (i == argc - 1 || argv[i + 1][0] == '-') {
+                fprintf(stderr, "Invalid argument! Filter type is not given!\n");
+                return 1;
+            }
+
+            if (!strcmp(argv[i + 1], "naive")) {
+                user_params->kernel_update = update_naive;
+            } else if (!strcmp(argv[i + 1], "gauss")) {
+                user_params->kernel_update = update_gaussian;
+            } else {
+                fprintf(stderr, "Invalid argument! Unsupported scheme!\n");
                 return 1;
             }
             i += 2;

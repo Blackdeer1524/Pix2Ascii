@@ -10,15 +10,19 @@ typedef struct {
     int triple_width;  // cached for convolve
 } frame_params_t;
 
+typedef int (*kernel_update_method)(double **kernel, int width, int height);
+
+int update_naive(double **kernel, int width, int height);
+
+int update_gaussian(double **kernel, int width, int height);
+
 typedef struct {
     double *kernel;
     int width;
     int height;
     int volume;  // cached for region_intensity_t: width * height * 3
+    kernel_update_method kernel_update;
 } kernel_params_t;
-
-
-int fill_gaussian_filter(double **kernel, int width, int height);
 
 void convolve(const frame_params_t *frame_params,
               const kernel_params_t *kernel_params,

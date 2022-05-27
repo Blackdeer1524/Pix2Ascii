@@ -18,6 +18,7 @@ typedef struct {
     int color_flag;
     int n_stream_loops;
     char *player_flag;
+    kernel_update_method kernel_update;
 } user_params_t;
 
 int argparse(user_params_t *user_params, int argc, char *argv[]);

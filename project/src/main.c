@@ -87,6 +87,7 @@ int main(int argc, char *argv[]) {
 
     kernel_params_t kernel_data;
     kernel_data.kernel = NULL;
+    kernel_data.kernel_update = user_params.kernel_update;
     int left_border_indent;
 
     initscr();

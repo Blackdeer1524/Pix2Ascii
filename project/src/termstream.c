@@ -44,7 +44,7 @@ void update_terminal_size(frame_params_t *frame_params,
         kernel_params->width = MAX((frame_params->height + n_available_rows) / n_available_rows, 1);
         kernel_params->height = MAX((frame_params->width + n_available_cols) / n_available_cols, 1);
         kernel_params->volume = kernel_params->width * kernel_params->height * 3;
-        fill_gaussian_filter(&kernel_params->kernel, kernel_params->width, kernel_params->height);
+        kernel_params->kernel_update(&kernel_params->kernel, kernel_params->width, kernel_params->height);
 
         frame_params->trimmed_height = frame_params->height - frame_params->height % kernel_params->width;
         frame_params->trimmed_width = frame_params->width - frame_params->width % kernel_params->height;

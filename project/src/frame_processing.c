@@ -4,7 +4,21 @@
 #include "frame_processing.h"
 #include "utils.h"
 
-int fill_gaussian_filter(double **kernel, int width, int height) {
+int update_naive(double **kernel, int width, int height) {
+    double *new_kernel = realloc(*kernel, sizeof(double) * width * height);
+    if (!new_kernel)
+        return 1;
+
+    int kernel_area = width * height;
+    for (int row_ind = 0 ; row_ind < height ; ++row_ind)
+        for (int col_ind = 0 ; col_ind < width ; ++col_ind)
+            new_kernel[row_ind * width + col_ind] = 1.0 / kernel_area;
+
+    *kernel = new_kernel;
+    return 0;
+}
+
+int update_gaussian(double **kernel, int width, int height) {
     double *new_kernel = realloc(*kernel, sizeof(double) * width * height);
     if (!new_kernel)
         return 1;
@@ -31,9 +45,6 @@ int fill_gaussian_filter(double **kernel, int width, int height) {
         for (col_ind = 0 ; col_ind < width ; ++col_ind)
             new_kernel[row_ind * width + col_ind] /= sum;
 
-    double s = 0;
-    for (int i = 0; i < height * width; ++i)
-        s += new_kernel[i];
     *kernel = new_kernel;
     return 0;
 }
