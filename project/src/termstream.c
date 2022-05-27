@@ -122,7 +122,6 @@ void colored_display(char symbol,
     int pair = COLOR_PAIR(get_color_index(r, g, b, kernel_params->width, kernel_params->height));
     attron(pair);
     addch(symbol);
-    attroff(pair);
 }
 
 void draw_frame(const frame_params_t *frame_params,
