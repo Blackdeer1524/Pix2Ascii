@@ -17,15 +17,9 @@ void update_terminal_size(frame_params_t *frame_params,
                           kernel_params_t *kernel_params,
                           int *left_border_indent);
 
-void draw_symbol_frame(frame_params_t *frame_params,
-                       const char char_set[],
-                       unsigned int max_char_set_index,
-                       region_intensity_t get_region_intensity);
-
 void set_color_pairs();
 
 typedef void (*display_symbol_t)(char symbol,
-                                 const kernel_params_t *kernel_params,
                                  unsigned int r, unsigned int g, unsigned int b);
 
 void simple_display(char symbol,
@@ -33,8 +27,7 @@ void simple_display(char symbol,
                     unsigned int r, unsigned int g, unsigned int b);
 
 void colored_display(char symbol,
-                    const kernel_params_t *kernel_params,
-                    unsigned int r, unsigned int g, unsigned int b);
+                     unsigned int r, unsigned int g, unsigned int b);
 
 
 

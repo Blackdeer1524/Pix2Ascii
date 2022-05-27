@@ -44,6 +44,7 @@ void update_terminal_size(frame_params_t *frame_params,
         kernel_params->width = MAX((frame_params->height + n_available_rows) / n_available_rows, 1);
         kernel_params->height = MAX((frame_params->width + n_available_cols) / n_available_cols, 1);
         kernel_params->volume = kernel_params->width * kernel_params->height * 3;
+        fill_gaussian_filter(&kernel_params->kernel, kernel_params->width, kernel_params->height);
 
         frame_params->trimmed_height = frame_params->height - frame_params->height % kernel_params->width;
         frame_params->trimmed_width = frame_params->width - frame_params->width % kernel_params->height;
@@ -103,11 +104,11 @@ void set_color_pairs() {
     init_pair(TEXT_COLOR_PAIR, WHITE_COLOR, BLACK_COLOR);
 }
 
-static int get_color_index(unsigned int r, unsigned int g, unsigned int b, unsigned long step1, unsigned long step2) {
+static int get_color_index(unsigned int r, unsigned int g, unsigned int b) {
     // Keep multipliers in origin order!
-    return r/step1/step2/DEPTH_6_CONVERT_DIV*RED_MULTIPLIER +
-    g/step1/step2/DEPTH_7_CONVERT_DIV*GREEN_MULTIPLIER +
-    b/step1/step2/DEPTH_6_CONVERT_DIV + 1;
+    return r / DEPTH_6_CONVERT_DIV * RED_MULTIPLIER +
+    g / DEPTH_7_CONVERT_DIV * GREEN_MULTIPLIER +
+    b / DEPTH_6_CONVERT_DIV + 1;
 }
 
 void simple_display(char symbol,
@@ -116,10 +117,8 @@ void simple_display(char symbol,
     addch(symbol);
 }
 
-void colored_display(char symbol,
-                    const kernel_params_t *kernel_params,
-                    unsigned int r, unsigned int g, unsigned int b) {
-    int pair = COLOR_PAIR(get_color_index(r, g, b, kernel_params->width, kernel_params->height));
+void colored_display(char symbol, unsigned int r, unsigned int g, unsigned int b) {
+    int pair = COLOR_PAIR(get_color_index(r, g, b));
     attron(pair);
     addch(symbol);
 }
@@ -131,7 +130,7 @@ void draw_frame(const frame_params_t *frame_params,
                 unsigned int max_char_set_index,
                 region_intensity_t get_region_intensity,
                 display_symbol_t display_symbol) {
-    unsigned int r, g, b;
+    double r, g, b;
     char displaying_symbol;
 
     for (int cur_char_row=0, cur_pixel_row=0;
@@ -141,10 +140,9 @@ void draw_frame(const frame_params_t *frame_params,
         for (int cur_pixel_col=0;
              cur_pixel_col < frame_params->trimmed_width;
              cur_pixel_col += kernel_params->height) {
-            process_block(frame_params, kernel_params, cur_pixel_row, cur_pixel_col, &r, &g, &b);
-            displaying_symbol = get_char_given_intensity(get_region_intensity(r, g, b, kernel_params->volume),
-                                                         char_set, max_char_set_index);
-            display_symbol(displaying_symbol, kernel_params, r, g, b);
+            convolve(frame_params, kernel_params, cur_pixel_row, cur_pixel_col, &r, &g, &b);
+            displaying_symbol = get_char_given_intensity(get_region_intensity(r, g, b), char_set, max_char_set_index);
+            display_symbol(displaying_symbol, (unsigned int) r, (unsigned int) g, (unsigned int) b);
         }
     }
 }

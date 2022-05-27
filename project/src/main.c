@@ -28,6 +28,15 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+//    user_params.reading_type = SOURCE_FILE;
+//    user_params.file_path = "./ricardo.mp4";
+//    charset_data_t test = {"N@#W$9876543210?!abc;:+=-,._ ", 28};
+//    user_params.charset_data = test;
+//    user_params.pixel_block_processing_method = average_chanel_intensity;
+//    user_params.color_flag = 1;
+//    user_params.n_stream_loops = 0;
+//    user_params.player_flag = NULL;
+
     FILE *pipein = NULL;
     frame_params_t frame_data;
 
@@ -77,6 +86,7 @@ int main(int argc, char *argv[]) {
     size_t frame_timing_sleep = N_uSECONDS_IN_ONE_SEC / VIDEO_FRAMERATE;
 
     kernel_params_t kernel_data;
+    kernel_data.kernel = NULL;
     int left_border_indent;
 
     initscr();
