@@ -28,8 +28,9 @@ static char get_char_given_intensity(unsigned char intensity,
     return char_set[max_index - intensity * max_index / 255];
 }
 
-
-void update_terminal_size(frame_params_t *frame_params) {
+void update_terminal_size(frame_params_t *frame_params,
+                          kernel_params_t *kernel_params,
+                          int *left_border_indent) {
     // current terminal size in rows and cols
     static int n_available_rows = -1, n_available_cols = -1;
     int new_n_available_rows, new_n_available_cols;
@@ -40,12 +41,13 @@ void update_terminal_size(frame_params_t *frame_params) {
         n_available_rows = new_n_available_rows;
         n_available_cols = new_n_available_cols;
 
-        frame_params->row_downscale_coef = MAX((frame_params->height + n_available_rows) / n_available_rows, 1);
-        frame_params->col_downscale_coef = MAX((frame_params->width  + n_available_cols) / n_available_cols, 1);
+        kernel_params->width = MAX((frame_params->height + n_available_rows) / n_available_rows, 1);
+        kernel_params->height = MAX((frame_params->width + n_available_cols) / n_available_cols, 1);
+        kernel_params->volume = kernel_params->width * kernel_params->height * 3;
 
-        frame_params->trimmed_height = frame_params->height - frame_params->height % frame_params->row_downscale_coef;
-        frame_params->trimmed_width = frame_params->width - frame_params->width % frame_params->col_downscale_coef;
-        frame_params->left_border_indent = (n_available_cols - frame_params->trimmed_width / frame_params->col_downscale_coef) / 2;
+        frame_params->trimmed_height = frame_params->height - frame_params->height % kernel_params->width;
+        frame_params->trimmed_width = frame_params->width - frame_params->width % kernel_params->height;
+        *left_border_indent = (n_available_cols - frame_params->trimmed_width / kernel_params->height) / 2;
         clear();
     }
 }
@@ -55,7 +57,7 @@ static char command_buffer[COMMAND_BUFFER_SIZE];
 #include "timestamps.h"
 #include "videostream.h"
 
-void debug(const debug_info_t *debug_info,
+void debug(const sync_info_t *debug_info,
            FILE *logs) {
     // =============================================
     // debug info about PREVIOUS frame
@@ -86,25 +88,6 @@ void debug(const debug_info_t *debug_info,
     fprintf(logs, "%s\n", command_buffer);
 }
 
-
-void draw_symbol_frame(frame_params_t *frame_params,
-                       const char char_set[],
-                       unsigned int max_char_set_index,
-                       region_intensity_t get_region_intensity) {
-    update_terminal_size(frame_params);
-
-    for (int cur_char_row=0, cur_pixel_row=0;
-         cur_pixel_row < frame_params->trimmed_height;
-         ++cur_char_row, cur_pixel_row += frame_params->row_downscale_coef) {
-        move(cur_char_row, frame_params->left_border_indent);
-        for (int cur_pixel_col=0;
-             cur_pixel_col < frame_params->trimmed_width;
-             cur_pixel_col += frame_params->col_downscale_coef)
-            addch(get_char_given_intensity(get_region_intensity(frame_params, cur_pixel_row, cur_pixel_col),
-                                           char_set, max_char_set_index));
-    }
-}
-
 void set_color_pairs() {
     for (int r = 0; r < RED_DEPTH; r++) {
         for (int g = 0; g < GREEN_DEPTH; g++) {
@@ -127,28 +110,42 @@ static int get_color_index(unsigned int r, unsigned int g, unsigned int b, unsig
     b/step1/step2/DEPTH_6_CONVERT_DIV + 1;
 }
 
-void draw_color_frame(frame_params_t *frame_params,
+void simple_display(char symbol,
+                    const kernel_params_t *kernel_params,
+                    unsigned int r, unsigned int g, unsigned int b) {
+    addch(symbol);
+}
+
+void colored_display(char symbol,
+                    const kernel_params_t *kernel_params,
+                    unsigned int r, unsigned int g, unsigned int b) {
+    int pair = COLOR_PAIR(get_color_index(r, g, b, kernel_params->width, kernel_params->height));
+    attron(pair);
+    addch(symbol);
+    attroff(pair);
+}
+
+void draw_frame(const frame_params_t *frame_params,
+                const kernel_params_t *kernel_params,
+                int left_border_indent,
                 const char char_set[],
                 unsigned int max_char_set_index,
-                region_intensity_t get_region_intensity) {
-    update_terminal_size(frame_params);
+                region_intensity_t get_region_intensity,
+                display_symbol_t display_symbol) {
     unsigned int r, g, b;
+    char displaying_symbol;
 
     for (int cur_char_row=0, cur_pixel_row=0;
          cur_pixel_row < frame_params->trimmed_height;
-         ++cur_char_row, cur_pixel_row += frame_params->row_downscale_coef) {
-        move(cur_char_row, frame_params->left_border_indent);
+         ++cur_char_row, cur_pixel_row += kernel_params->width) {
+        move(cur_char_row, left_border_indent);
         for (int cur_pixel_col=0;
              cur_pixel_col < frame_params->trimmed_width;
-             cur_pixel_col += frame_params->col_downscale_coef) {
-            process_block(frame_params, cur_pixel_row, cur_pixel_col, &r, &g, &b);
-            attron(COLOR_PAIR(get_color_index(r, g, b, frame_params->row_downscale_coef,
-                                              frame_params->col_downscale_coef)));
-            addch(get_char_given_intensity(
-                    get_region_intensity(frame_params, cur_pixel_row, cur_pixel_col), char_set, max_char_set_index));
-            attroff(COLOR_PAIR(get_color_index(r, g, b, frame_params->row_downscale_coef,
-                                               frame_params->col_downscale_coef)));
+             cur_pixel_col += kernel_params->height) {
+            process_block(frame_params, kernel_params, cur_pixel_row, cur_pixel_col, &r, &g, &b);
+            displaying_symbol = get_char_given_intensity(get_region_intensity(r, g, b, kernel_params->volume),
+                                                         char_set, max_char_set_index);
+            display_symbol(displaying_symbol, kernel_params, r, g, b);
         }
     }
-    attron(COLOR_PAIR(TEXT_COLOR_PAIR));
 }

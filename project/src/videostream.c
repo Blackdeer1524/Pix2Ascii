@@ -41,10 +41,10 @@ int get_frame_data(const char *filepath, int *frame_width, int *frame_height) {
 
 FILE *get_camera_stream(int frame_width, int frame_height) {
     int n_chars_printed = snprintf(command_buffer, COMMAND_BUFFER_SIZE,
-                               "ffmpeg -hide_banner -loglevel error "
-                               "-f v4l2 -i /dev/video0 -f image2pipe "
-                               "-vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -",
-                               VIDEO_FRAMERATE, frame_width, frame_height);
+                                   "ffmpeg -hide_banner -loglevel error "
+                                   "-f v4l2 -i /dev/video0 -f image2pipe "
+                                   "-vf fps=%d -vf scale=%d:%d -vcodec rawvideo -pix_fmt rgb24 -",
+                                   VIDEO_FRAMERATE, frame_width, frame_height);
     if (n_chars_printed < 0) {
         fprintf(stderr, "Error setting up camera!\n");
         return NULL;
