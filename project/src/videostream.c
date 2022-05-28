@@ -1,10 +1,12 @@
 //
 // Created by blackdeer on 5/17/22.
 //
+#include <unistd.h>
 #include <stdio.h>
-#include<stdlib.h>
-#include<unistd.h>
+#include <stdlib.h>
 #include <signal.h>
+#include <sys/wait.h>
+
 #include "videostream.h"
 
 #define COMMAND_BUFFER_SIZE 512
@@ -89,15 +91,23 @@ int start_player(char *file_path, int n_stream_loops, char *player_type) {
         return 0;
 
     FILE *ffplay_log_file = NULL;
-    FILE *tmp = NULL;
 
     snprintf(command_buffer, COMMAND_BUFFER_SIZE,
              "FFREPORT=file=StartIndicator:level=32 "
              "ffplay %s -loop %d %s -hide_banner -loglevel error -nostats -vf showinfo -framedrop ",
              player_type, n_stream_loops, file_path);
-    if (!(tmp = popen(command_buffer, "r"))) {
-        return 1;
+    
+    int id = 0;
+    if (id = fork()) {
+        // parent
+        wait(&id);
+    } else {
+        // child
     }
+    
+    //if (!(tmp = popen(command_buffer, "r"))) {
+        //return 1;
+    //}
 
     if (!(ffplay_log_file = fopen("StartIndicator", "w+"))) {
         return 1;
