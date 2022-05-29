@@ -97,16 +97,6 @@ int start_player(char *file_path, int n_stream_loops, char *player_type) {
              "FFREPORT=file=StartIndicator:level=32 "
              "ffplay %s -loop %d %s -hide_banner -loglevel error -nostats -vf showinfo -framedrop ",
              player_type, n_stream_loops, file_path);
-
-//    int id = 0;
-//    if (id = fork()) {
-//        // parent
-//        wait(&id);
-//    } else {
-//        // child
-//        execl();
-//        return 1;
-//    }
     
     if (!(tmp = popen(command_buffer, "r"))) {
         return 1;
