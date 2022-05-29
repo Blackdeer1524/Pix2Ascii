@@ -13,9 +13,9 @@ typedef struct {
     size_t cur_frame_processing_time;
 } sync_info_t;
 
-void update_terminal_size(frame_params_t *frame_params,
-                          kernel_params_t *kernel_params,
-                          int *left_border_indent);
+int update_terminal_size(frame_params_t *frame_params,
+                         kernel_params_t *kernel_params,
+                         int *left_border_indent);
 
 void set_color_pairs();
 

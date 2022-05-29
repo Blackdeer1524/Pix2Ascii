@@ -5,7 +5,7 @@
 
 #include "argparsing.h"
 #include "frame_processing.h"
-#include "error.h"
+#include "status_codes.h"
 
 
 typedef enum {CHARSET_SHARP, CHARSET_OPTIMAL, CHARSET_STANDART, CHARSET_LONG, CHARSET_N} t_char_set;
@@ -51,7 +51,7 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
         } else if (!strcmp(&argv[i][1], "f")) {
             if (i == argc - 1 || argv[i + 1][0] == '-') {
                 fprintf(stderr, "Invalid argument! File path was not given!\n");
-                return FILE_PATH_ERROR;
+                return FLAG_ERROR;
             } else {
                 user_params->reading_type = SOURCE_FILE;
                 user_params->file_path = argv[i + 1];
@@ -72,8 +72,8 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
             } else if (!strcmp(argv[i + 1], "long")) {
                 user_params->charset_data = charsets[CHARSET_LONG];
             } else {
-                fprintf(stderr, "Invalid argument! Unsupported scheme!\n");
-                return FLAG_ERROR;
+                fprintf(stderr, "Invalid argument! Unsupported ASCII set!\n");
+                return NOT_IMPLEMENTED_ERROR;
             }
             i += 2;
         } else if (!strcmp(&argv[i][1], "method")) {
@@ -88,7 +88,7 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
                 user_params->pixel_block_processing_method = yuv_intensity;
             } else {
                 fprintf(stderr, "Invalid argument! Unsupported grayscale method!\n");
-                return FLAG_ERROR;
+                return NOT_IMPLEMENTED_ERROR;
             }
             i += 2;
         } else if (!strcmp(&argv[i][1], "color")) {
@@ -97,7 +97,7 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
                 return TERMINAL_COLORS_ERROR;
             } else if (can_change_color()) {
                 fprintf(stderr, "Sorry, but your terminal doesn't support color change!\n");
-                return COLOR_CHANGING_ERROR;
+                return TERMINAL_COLORS_ERROR;
             }
             user_params->color_flag = 1;
             ++i;
@@ -120,7 +120,7 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
                 user_params->player_flag = player_flags[PLAYER_ALL];
             } else {
                 fprintf(stderr, "Invalid argument! Unsupported player type!\n");
-                return FLAG_ERROR;
+                return NOT_IMPLEMENTED_ERROR;
             }
             i += 2;
         } else if (!strcmp(&argv[i][1], "filter")) {
@@ -134,10 +134,22 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
             } else if (!strcmp(argv[i + 1], "gauss")) {
                 user_params->kernel_update = update_gaussian;
             } else {
-                fprintf(stderr, "Invalid argument! Unsupported scheme!\n");
-                return FLAG_ERROR;
+                fprintf(stderr, "Invalid argument! Unsupported filter type!\n");
+                return NOT_IMPLEMENTED_ERROR;
             }
             i += 2;
+        } else if (!strcmp(&argv[i][1], "h")) {
+             printf("%s\n",
+                    "flags:\n"
+                    "-f <Media path>\n"
+                    "-c : (camera support)\n"
+                    "-set [sharp | optimal | standard | long] : ascii set\n"
+                    "-method [average | yuv] : RGB channels combining method\n"
+                    "-color : colorize terminal\n"
+                    "-nl : loop video; -1 for infinite loop\n"
+                    "-player [0 - off; 1 - only video; 2 - only audio; 3 - video and audio]\n"
+                    "-filter [naive | gauss]");
+            return HELP_FLAG;
         } else {
             fprintf(stderr, "Unknown flag!\n");
             return FLAG_ERROR;

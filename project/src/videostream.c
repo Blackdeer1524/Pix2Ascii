@@ -8,7 +8,7 @@
 #include <sys/wait.h>
 
 #include "videostream.h"
-#include "error.h"
+#include "status_codes.h"
 
 #define COMMAND_BUFFER_SIZE 512
 static char command_buffer[COMMAND_BUFFER_SIZE];
@@ -22,23 +22,23 @@ int get_frame_data(const char *filepath, int *frame_width, int *frame_height) {
 
     if (n_chars_printed < 0) {
         fprintf(stderr, "Error obtaining input resolution!\n");
-        return -1;
+        return RESOLUTION_OBTAINING_ERROR;
     } else if (n_chars_printed >= COMMAND_BUFFER_SIZE) {
         fprintf(stderr, "Error obtaining input resolution! Query is too big!\n");
-        return -1;
+        return RESOLUTION_OBTAINING_ERROR;
     }
     FILE *image_data_pipe = popen(command_buffer, "r");
     if (!image_data_pipe) {
         fprintf(stderr, "Error obtaining input resolution! Couldn't get an interface with ffprobe!\n");
-        return -1;
+        return RESOLUTION_OBTAINING_ERROR;
     }
     // reading input resolution
     if (fscanf(image_data_pipe, "%d %d", frame_width, frame_height) != 2 ||
     fflush(image_data_pipe) || fclose(image_data_pipe)) {
         fprintf(stderr, "Error obtaining input resolution! Width/height not found\n");
-        return -1;
+        return RESOLUTION_OBTAINING_ERROR;
     }
-    return 0;
+    return SUCCESS;
 }
 
 
@@ -100,10 +100,12 @@ int start_player(char *file_path, int n_stream_loops, char *player_type) {
              player_type, n_stream_loops, file_path);
     
     if (!(tmp = popen(command_buffer, "r"))) {
+        fprintf(stderr, "Couldn't start player!");
         return POPEN_ERROR;
     }
 
     if (!(ffplay_log_file = fopen("StartIndicator", "w+"))) {
+        fprintf(stderr, "Couldn't open StartIndicator!");
         return FOPEN_ERROR;
     }
 
@@ -115,6 +117,7 @@ int start_player(char *file_path, int n_stream_loops, char *player_type) {
 
             fclose(ffplay_log_file);
             if (!(ffplay_log_file = fopen("StartIndicator", "r"))) {
+                fprintf(stderr, "Couldn't reopen StartIndicator!");
                 return FOPEN_ERROR;
             }
 

@@ -7,6 +7,7 @@
 #include "timestamps.h"
 #include "argparsing.h"
 #include "termstream.h"
+#include "status_codes.h"
 
 
 static void close_pipe(FILE *pipeline) {
@@ -23,19 +24,12 @@ static void free_space(unsigned char *video_frame, FILE *pipeline, FILE *logs_fi
 
 int main(int argc, char *argv[]) {
     user_params_t user_params;
-    if (argparse(&user_params, argc, argv)) {
-        // ...
-        return 1;
+    int return_status = SUCCESS;
+    if ((return_status = argparse(&user_params, argc, argv))) {
+        if (return_status == HELP_FLAG)
+            return SUCCESS;
+        return return_status;
     }
-
-//    user_params.reading_type = SOURCE_FILE;
-//    user_params.file_path = "./ricardo.mp4";
-//    charset_data_t test = {"N@#W$9876543210?!abc;:+=-,._ ", 28};
-//    user_params.charset_data = test;
-//    user_params.pixel_block_processing_method = average_chanel_intensity;
-//    user_params.color_flag = 1;
-//    user_params.n_stream_loops = 0;
-//    user_params.player_flag = NULL;
 
     FILE *pipein = NULL;
     frame_params_t frame_data;
@@ -45,36 +39,42 @@ int main(int argc, char *argv[]) {
     if (user_params.reading_type == SOURCE_FILE) {
         if (!(pipein = get_file_stream(user_params.file_path, user_params.n_stream_loops))) {
             // ...
-            return 1;
+            return POPEN_ERROR;
         }
-        if (get_frame_data(user_params.file_path, &frame_data.width, &frame_data.height)) {
+        if ((return_status = get_frame_data(user_params.file_path, &frame_data.width, &frame_data.height))) {
             // ...
-            return 1;
+            return return_status;
         }
-        if (start_player(user_params.file_path, user_params.n_stream_loops + 1, user_params.player_flag)) {
+        if ((return_status = start_player(user_params.file_path, user_params.n_stream_loops + 1, user_params.player_flag))) {
             // ...
-            return 1;
+            return return_status;
         }
     } else if (user_params.reading_type == SOURCE_CAMERA) {
         if (!(pipein = get_camera_stream(frame_data.width, frame_data.height))) {
             // ...
-            return 1;
+            return POPEN_ERROR;
         }
     } else {
-        // ...
-        return 1;
+        fprintf(stderr, "Unknown source format!");
+        return NOT_IMPLEMENTED_ERROR;
     }
+
     timespec startTime;
     clock_gettime(CLOCK_MONOTONIC_COARSE, &startTime);
 
     FILE *logs = fopen("Logs.txt", "w");
+    if (!logs) {
+        fprintf(stderr, "Couldn't open log file!");
+        return FOPEN_ERROR;
+    }
 
     frame_data.triple_width = frame_data.width * 3;
     int TOTAL_READ_SIZE = frame_data.triple_width * frame_data.height;
     frame_data.video_frame = malloc(sizeof(unsigned char) * TOTAL_READ_SIZE);
     if (!frame_data.video_frame) {
-        // ...
-        return 1;
+        fprintf(stderr, "Couldn't allocate memory for frame!");
+        return_status = FRAME_ALLOCATION_ERROR;
+        goto free_memory;
     }
 
     sync_info_t frame_sync_info;
@@ -115,7 +115,9 @@ int main(int argc, char *argv[]) {
         // ASCII frame preparation
         // draw_frame(&frame_data, user_params.charset_data.char_set, user_params.charset_data.last_index,
         //            user_params.pixel_block_processing_method);
-        update_terminal_size(&frame_data, &kernel_data, &left_border_indent);
+        if ((return_status = update_terminal_size(&frame_data, &kernel_data, &left_border_indent)))
+            goto free_memory;
+
         draw_frame(&frame_data, &kernel_data, left_border_indent,
                    user_params.charset_data.char_set, user_params.charset_data.last_index,
                    user_params.pixel_block_processing_method, symbol_display_method);
@@ -144,9 +146,10 @@ int main(int argc, char *argv[]) {
         }
         usleep(sleep_time);
     }
-    getchar();
-    endwin();
-    printf("END\n");
-    free_space(frame_data.video_frame, pipein, logs);
-    return 0;
+    free_memory:
+        getchar();
+        endwin();
+        printf("END\n");
+        free_space(frame_data.video_frame, pipein, logs);
+    return return_status;
 }

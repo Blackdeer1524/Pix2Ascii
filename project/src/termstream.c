@@ -5,6 +5,7 @@
 #include "termstream.h"
 #include "frame_processing.h"
 #include "utils.h"
+#include "status_codes.h"
 
 #include <ncurses.h>
 
@@ -28,12 +29,13 @@ static char get_char_given_intensity(unsigned char intensity,
     return char_set[max_index - intensity * max_index / 255];
 }
 
-void update_terminal_size(frame_params_t *frame_params,
+int update_terminal_size(frame_params_t *frame_params,
                           kernel_params_t *kernel_params,
                           int *left_border_indent) {
     // current terminal size in rows and cols
     static int n_available_rows = -1, n_available_cols = -1;
     int new_n_available_rows, new_n_available_cols;
+    int kernel_update_status = SUCCESS;
 
     // video frame downsample coefficients
     getmaxyx(stdscr, new_n_available_rows, new_n_available_cols);
@@ -44,13 +46,16 @@ void update_terminal_size(frame_params_t *frame_params,
         kernel_params->width = MAX((frame_params->height + n_available_rows) / n_available_rows, 1);
         kernel_params->height = MAX((frame_params->width + n_available_cols) / n_available_cols, 1);
         kernel_params->volume = kernel_params->width * kernel_params->height * 3;
-        kernel_params->kernel_update(&kernel_params->kernel, kernel_params->width, kernel_params->height);
+        kernel_update_status = kernel_params->kernel_update(&kernel_params->kernel,
+                                                            kernel_params->width,
+                                                            kernel_params->height);
 
         frame_params->trimmed_height = frame_params->height - frame_params->height % kernel_params->width;
         frame_params->trimmed_width = frame_params->width - frame_params->width % kernel_params->height;
         *left_border_indent = (n_available_cols - frame_params->trimmed_width / kernel_params->height) / 2;
         clear();
     }
+    return kernel_update_status;
 }
 
 #define COMMAND_BUFFER_SIZE 512

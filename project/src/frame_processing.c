@@ -1,13 +1,17 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 
 #include "frame_processing.h"
 #include "utils.h"
+#include "status_codes.h"
 
 int update_naive(double **kernel, int width, int height) {
     double *new_kernel = realloc(*kernel, sizeof(double) * width * height);
-    if (!new_kernel)
-        return 1;
+    if (!new_kernel) {
+        fprintf(stderr, "Couldn't update kernel size!");
+        return KERNEL_UPDATE_ERROR;
+    }
 
     int kernel_area = width * height;
     for (int row_ind = 0 ; row_ind < height ; ++row_ind)
@@ -15,13 +19,15 @@ int update_naive(double **kernel, int width, int height) {
             new_kernel[row_ind * width + col_ind] = 1.0 / kernel_area;
 
     *kernel = new_kernel;
-    return 0;
+    return SUCCESS;
 }
 
 int update_gaussian(double **kernel, int width, int height) {
     double *new_kernel = realloc(*kernel, sizeof(double) * width * height);
-    if (!new_kernel)
-        return 1;
+    if (!new_kernel) {
+        fprintf(stderr, "Couldn't update kernel size!");
+        return KERNEL_UPDATE_ERROR;
+    }
     double sigma = 1;
     const double double_sqr_sigma = 2 * sigma * sigma;
 
@@ -46,7 +52,7 @@ int update_gaussian(double **kernel, int width, int height) {
             new_kernel[row_ind * width + col_ind] /= sum;
 
     *kernel = new_kernel;
-    return 0;
+    return SUCCESS;
 }
 
 void convolve(const frame_params_t *frame_params,
@@ -84,6 +90,5 @@ unsigned char average_chanel_intensity(double r, double g, double b) {
 
 
 unsigned char yuv_intensity(double r, double g, double b) {
-    double current_block_intensity = (r * 0.299 + 0.587 * g + 0.114 * b);
-    return MIN((unsigned char) current_block_intensity, 255);
+    return (unsigned char) (r * 0.299 + 0.587 * g + 0.114 * b);
 }
