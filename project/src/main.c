@@ -116,19 +116,20 @@ int main(int argc, char *argv[]) {
 
         if ((return_status = update_terminal_size(&frame_data, &kernel_data, &user_params.terminal_params)))
             break;
-
         draw_frame(&frame_data, &kernel_data, user_params.charset_params,
                    user_params.terminal_params.left_border_indent,
                    user_params.frame_processing_params.rgb_channels_processor,
                    symbol_display_method);
         debug(&frame_sync_info, logs, symbol_display_method);
         // ASCII frame drawing
-        refresh();
         prev_uS_elapsed = frame_sync_info.uS_elapsed;
         frame_sync_info.uS_elapsed = get_elapsed_time_from_start_us(startTime);
         frame_sync_info.cur_frame_processing_time = frame_sync_info.uS_elapsed - prev_uS_elapsed;
 
         sleep_time = frame_timing_sleep - (frame_sync_info.uS_elapsed % frame_timing_sleep);
+        usleep(sleep_time);
+        refresh();
+
         frame_sync_info.time_frame_index =  // ceil(total_elapsed_time / frame_timing_sleep)
                 frame_sync_info.uS_elapsed / frame_timing_sleep +
                 (frame_sync_info.uS_elapsed % frame_timing_sleep != 0);
@@ -144,7 +145,6 @@ int main(int argc, char *argv[]) {
         } else if (frame_sync_info.time_frame_index < frame_sync_info.frame_index) {
             usleep((frame_sync_info.frame_index - frame_sync_info.time_frame_index) * frame_timing_sleep);
         }
-        usleep(sleep_time);
     }
     free_memory:
         getchar();
