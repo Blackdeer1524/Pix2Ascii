@@ -3,7 +3,6 @@
 #include <math.h>
 
 #include "frame_processing.h"
-#include "utils.h"
 #include "status_codes.h"
 
 int update_naive(double **kernel, int width, int height) {
