@@ -24,7 +24,7 @@ static void free_space(unsigned char *video_frame, FILE *pipeline, FILE *logs_fi
 
 int main(int argc, char *argv[]) {
     user_params_t user_params;
-    int return_status = SUCCESS;
+    int return_status;
     if ((return_status = argparse(&user_params, argc, argv))) {
         if (return_status == HELP_FLAG)
             return SUCCESS;
@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
         // draw_frame(&frame_data, user_params.charset_params.char_set, user_params.charset_params.last_index,
         //            user_params.frame_processing_params.rgb_channels_processor);
         if ((return_status = update_terminal_size(&frame_data, &kernel_data,
-                                                  &user_params.terminal_params, &left_border_indent)))
+                                                  user_params.terminal_params, &left_border_indent)))
             goto free_memory;
 
         draw_frame(&frame_data, &kernel_data, user_params.charset_params, left_border_indent,

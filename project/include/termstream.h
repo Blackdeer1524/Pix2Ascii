@@ -17,7 +17,7 @@ typedef struct {
 
 int update_terminal_size(frame_params_t *frame_params,
                          kernel_params_t *kernel_params,
-                         terminal_params_t *terminal_params,
+                         terminal_params_t terminal_params,
                          int *left_border_indent);
 
 void set_color_pairs();
