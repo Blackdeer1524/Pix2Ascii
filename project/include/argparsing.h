@@ -17,20 +17,21 @@ typedef struct {
 } terminal_params_t;
 
 typedef struct {
+    source_t reading_type;
+    char *file_path;
+    int n_stream_loops;
+    char *player_flag;
+} ffmpeg_params_t;
+
+typedef struct {
+    region_intensity_t rgb_channels_processor;
+    kernel_update_method update_kernel;
+} frame_processing_params_t;
+
+typedef struct {
     charset_params_t charset_params;
-
-    struct {
-        source_t reading_type;
-        char *file_path;
-        int n_stream_loops;
-        char *player_flag;
-    } ffmpeg_params;
-
-    struct {
-        region_intensity_t rgb_channels_processor;
-        kernel_update_method update_kernel;
-    } frame_processing_params;
-
+    ffmpeg_params_t ffmpeg_params;
+    frame_processing_params_t frame_processing_params;
     terminal_params_t terminal_params;
 } user_params_t;
 
