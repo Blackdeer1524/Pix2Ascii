@@ -31,6 +31,7 @@ static char get_char_given_intensity(unsigned char intensity,
 
 int update_terminal_size(frame_params_t *frame_params,
                           kernel_params_t *kernel_params,
+                          terminal_params_t *terminal_params,
                           int *left_border_indent) {
     // current terminal size in rows and cols
     static int n_available_rows = -1, n_available_cols = -1;
@@ -39,6 +40,9 @@ int update_terminal_size(frame_params_t *frame_params,
 
     // video frame downsample coefficients
     getmaxyx(stdscr, new_n_available_rows, new_n_available_cols);
+    new_n_available_rows = MIN(new_n_available_rows, terminal_params->max_height);
+    new_n_available_cols = MIN(new_n_available_cols, terminal_params->max_width);
+
     if (n_available_rows != new_n_available_rows || n_available_cols != new_n_available_cols) {
         n_available_rows = new_n_available_rows;
         n_available_cols = new_n_available_cols;

@@ -13,8 +13,15 @@ typedef struct {
     size_t cur_frame_processing_time;
 } sync_info_t;
 
+typedef struct {
+    int color_flag;
+    int max_width;
+    int max_height;
+} terminal_params_t;
+
 int update_terminal_size(frame_params_t *frame_params,
                          kernel_params_t *kernel_params,
+                         terminal_params_t *terminal_params,
                          int *left_border_indent);
 
 void set_color_pairs();

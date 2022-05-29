@@ -2,6 +2,7 @@
 #define PIX2ASCII_ARGPARSING_H
 
 #include "frame_processing.h"
+#include "termstream.h"
 
 typedef enum {SOURCE_FILE, SOURCE_CAMERA} source_t;
 
@@ -25,13 +26,7 @@ typedef struct {
         kernel_update_method update_kernel;
     } frame_processing_params;
 
-    struct {
-        int color_flag;
-        int max_width;
-        int min_width;
-        int max_height;
-        int min_height;
-    } terminal_params;
+    terminal_params_t terminal_params;
 } user_params_t;
 
 int argparse(user_params_t *user_params, int argc, char *argv[]);
