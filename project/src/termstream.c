@@ -132,9 +132,8 @@ void colored_display(const char *symbol, unsigned char r, unsigned char g, unsig
 
 void draw_frame(const frame_params_t *frame_params,
                 const kernel_params_t *kernel_params,
+                charset_params_t charset_params,
                 int left_border_indent,
-                const char char_set[],
-                unsigned int max_char_set_index,
                 region_intensity_t get_region_intensity,
                 display_method_t display_method) {
     double r, g, b;
@@ -148,7 +147,8 @@ void draw_frame(const frame_params_t *frame_params,
              cur_pixel_col < frame_params->trimmed_width;
              cur_pixel_col += kernel_params->height) {
             convolve(frame_params, kernel_params, cur_pixel_row, cur_pixel_col, &r, &g, &b);
-            displaying_symbol[0] = get_char_given_intensity(get_region_intensity(r, g, b), char_set, max_char_set_index);
+            displaying_symbol[0] = get_char_given_intensity(get_region_intensity(r, g, b), charset_params.char_set,
+                                                            charset_params.last_index);
             display_method(displaying_symbol, (unsigned char) r, (unsigned char) g, (unsigned char) b);
         }
     }

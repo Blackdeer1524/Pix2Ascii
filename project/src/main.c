@@ -121,8 +121,7 @@ int main(int argc, char *argv[]) {
                                                   &user_params.terminal_params, &left_border_indent)))
             goto free_memory;
 
-        draw_frame(&frame_data, &kernel_data, left_border_indent,
-                   user_params.charset_params.char_set, user_params.charset_params.last_index,
+        draw_frame(&frame_data, &kernel_data, user_params.charset_params, left_border_indent,
                    user_params.frame_processing_params.rgb_channels_processor, symbol_display_method);
         debug(&frame_sync_info, logs, symbol_display_method);
         // ASCII frame drawing

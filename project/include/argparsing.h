@@ -2,7 +2,6 @@
 #define PIX2ASCII_ARGPARSING_H
 
 #include "frame_processing.h"
-#include "termstream.h"
 
 typedef enum {SOURCE_FILE, SOURCE_CAMERA} source_t;
 
@@ -10,6 +9,12 @@ typedef struct {
     char *char_set;
     unsigned int last_index;
 } charset_params_t;
+
+typedef struct {
+    int color_flag;
+    int max_width;
+    int max_height;
+} terminal_params_t;
 
 typedef struct {
     charset_params_t charset_params;
