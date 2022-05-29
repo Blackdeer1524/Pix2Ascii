@@ -8,6 +8,7 @@
 #include <sys/wait.h>
 
 #include "videostream.h"
+#include "error.h"
 
 #define COMMAND_BUFFER_SIZE 512
 static char command_buffer[COMMAND_BUFFER_SIZE];
@@ -88,7 +89,7 @@ FILE *get_file_stream(const char *file_path, int n_stream_loops) {
 
 int start_player(char *file_path, int n_stream_loops, char *player_type) {
     if (!player_type)
-        return 0;
+        return SUCCESS;
 
     FILE *ffplay_log_file = NULL;
     FILE *tmp = NULL;
@@ -99,11 +100,11 @@ int start_player(char *file_path, int n_stream_loops, char *player_type) {
              player_type, n_stream_loops, file_path);
     
     if (!(tmp = popen(command_buffer, "r"))) {
-        return 1;
+        return POPEN_ERROR;
     }
 
     if (!(ffplay_log_file = fopen("StartIndicator", "w+"))) {
-        return 1;
+        return FOPEN_ERROR;
     }
 
     int brackets_count = 0;
@@ -114,7 +115,7 @@ int start_player(char *file_path, int n_stream_loops, char *player_type) {
 
             fclose(ffplay_log_file);
             if (!(ffplay_log_file = fopen("StartIndicator", "r"))) {
-                return 1;
+                return FOPEN_ERROR;
             }
 
             fseek(ffplay_log_file, current_file_position, SEEK_SET);
@@ -124,5 +125,5 @@ int start_player(char *file_path, int n_stream_loops, char *player_type) {
     }
     fclose(ffplay_log_file);
 
-    return 0;
+    return SUCCESS;
 }
