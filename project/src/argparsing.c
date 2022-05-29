@@ -30,7 +30,7 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
     // -c : (camera support)
     // -set [sharp | optimal | standard | long] : ascii set
     // -method [average | yuv] : grayscale conversion methods
-    // -color : enable color support
+    // --color : enable color support
     // -nl : loop video; -1 for infinite loop
     // -player [0 - off; 1 - only video; 2 - only audio; 3 - video and audio]
     // -filter [naive | gauss]
@@ -42,7 +42,7 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
     user_params->terminal_params.color_flag = 0;
     user_params->terminal_params.max_width = INT_MAX;
     user_params->terminal_params.max_height = INT_MAX;
-
+    user_params->terminal_params.preserve_aspect_flag = 0;
     for (int i=1; i<argc;) {
         if (argv[i][0] != '-') {
             fprintf(stderr, "Invalid argument! Value is given without a corresponding flag!\n");
@@ -95,7 +95,7 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
                 return NOT_IMPLEMENTED_ERROR;
             }
             i += 2;
-        } else if (!strcmp(&argv[i][1], "color")) {
+        } else if (!strcmp(&argv[i][1], "-color")) {
             if (has_colors()) {
                 fprintf(stderr, "Sorry, but your terminal doesn't support colors!\n");
                 return TERMINAL_COLORS_ERROR;
@@ -104,6 +104,9 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
                 return TERMINAL_COLORS_ERROR;
             }
             user_params->terminal_params.color_flag = 1;
+            ++i;
+        } else if (!strcmp(&argv[i][1], "-keep-aspect")) {
+            user_params->terminal_params.preserve_aspect_flag = 1;
             ++i;
         } else if (!strcmp(&argv[i][1], "nl")) {
             user_params->ffmpeg_params.n_stream_loops = atoi(argv[i + 1]);
@@ -163,10 +166,13 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
                     "-c : (camera support)\n"
                     "-set [sharp | optimal | standard | long] : ascii set\n"
                     "-method [average | yuv] : RGB channels combining method\n"
-                    "-color : colorize terminal\n"
                     "-nl : loop video; -1 for infinite loop\n"
                     "-player [0 - off; 1 - only video; 2 - only audio; 3 - video and audio]\n"
-                    "-filter [naive | gauss]");
+                    "-filter [naive | gauss]\n"
+                    "-maxw: set max produced width\n"
+                    "-maxh: set max produced height\n"
+                    "--color : colorize terminal\n"
+                    "--keep-aspect: Enable aspect ratio");
             return HELP_FLAG;
         } else {
             fprintf(stderr, "Unknown flag!\n");

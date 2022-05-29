@@ -5,6 +5,7 @@ typedef struct {
     unsigned char *video_frame;
     int width;
     int height;
+    int aspect_ratio;
     int trimmed_width;  // cached for draw_frame
     int trimmed_height;  // cached for draw_frame
     int triple_width;  // cached for convolve

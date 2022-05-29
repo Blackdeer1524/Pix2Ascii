@@ -31,24 +31,40 @@ static char get_char_given_intensity(unsigned char intensity,
 
 int update_terminal_size(frame_params_t *frame_params,
                           kernel_params_t *kernel_params,
-                          terminal_params_t terminal_params,
-                          int *left_border_indent) {
+                          terminal_params_t *terminal_params) {
     // current terminal size in rows and cols
-    static int n_available_rows = -1, n_available_cols = -1;
-    int new_n_available_rows, new_n_available_cols;
+    static int n_rows = -1, n_cols = -1;
+    int new_n_rows, new_n_cols;
     int kernel_update_status = SUCCESS;
 
     // video frame downsample coefficients
-    getmaxyx(stdscr, new_n_available_rows, new_n_available_cols);
-    if (n_available_rows != new_n_available_rows || n_available_cols != new_n_available_cols) {
-        n_available_rows = new_n_available_rows;
-        n_available_cols = new_n_available_cols;
+    getmaxyx(stdscr, new_n_rows, new_n_cols);
+    if (n_rows != new_n_rows || n_cols != new_n_cols) {
+        n_rows = new_n_rows;
+        n_cols = new_n_cols;
 
-        int rectified_term_height = MIN(new_n_available_rows, terminal_params.max_height);
-        int rectified_term_width = MIN(new_n_available_cols, terminal_params.max_width);
+        int rectified_height = MIN(new_n_rows, terminal_params->max_height);
+        int rectified_width = MIN(new_n_cols, terminal_params->max_width);
 
-        kernel_params->width = MAX((frame_params->height + rectified_term_height) / rectified_term_height, 1);
-        kernel_params->height = MAX((frame_params->width + rectified_term_width) / rectified_term_width, 1);
+        if (terminal_params->preserve_aspect_flag) {
+            if (frame_params->aspect_ratio) {  // width > height
+                int new_rectified_height = frame_params->height * rectified_width / frame_params->width;
+                if (new_rectified_height > n_rows) {
+                    rectified_width = frame_params->width * rectified_height / frame_params->height;
+                } else {
+                    rectified_height = new_rectified_height;
+                }
+            } else {  // height > width
+                int new_rectified_width = frame_params->width * rectified_height / frame_params->height;
+                if (new_rectified_width > n_cols) {
+                    rectified_height = frame_params->height * rectified_width / frame_params->width;
+                } else {
+                    rectified_width = new_rectified_width;
+                }
+            }
+        }
+        kernel_params->width = MAX((frame_params->height + rectified_height) / rectified_height, 1);
+        kernel_params->height = MAX((frame_params->width + rectified_width) / rectified_width, 1);
         kernel_params->volume = kernel_params->width * kernel_params->height * 3;
         kernel_update_status = kernel_params->update_kernel(&kernel_params->kernel,
                                                             kernel_params->width,
@@ -56,7 +72,7 @@ int update_terminal_size(frame_params_t *frame_params,
 
         frame_params->trimmed_height = frame_params->height - frame_params->height % kernel_params->width;
         frame_params->trimmed_width = frame_params->width - frame_params->width % kernel_params->height;
-        *left_border_indent = (rectified_term_width - frame_params->trimmed_width / kernel_params->height) / 2;
+        terminal_params->left_border_indent = MAX(0, (n_cols - frame_params->trimmed_width / kernel_params->height) / 2);
         clear();
     }
     return kernel_update_status;
@@ -80,11 +96,14 @@ void debug(const sync_info_t *debug_info,
     // Cur uSPF - micro (u) Seconds Per Frame (current);
     // Avg uSPF - micro (u) Seconds Per Frame (Avg);
     // FPS      - Frames Per Second;
+    int n_rows, n_cols;
+    getmaxyx(stdscr, n_rows, n_cols);
     size_t uS_per_frame  = debug_info->uS_elapsed / debug_info->frame_index +
             (debug_info->uS_elapsed % debug_info->frame_index != 0);
     // "EL uS:%10llu|EL S:%8.2f|FI:%5llu|TFI:%5llu|TFI - FI:%2d|uSPF:%8llu|Cur uSPF:%8llu|Avg uSPF:%8llu|FPS:%8f"
     snprintf(command_buffer, COMMAND_BUFFER_SIZE,
-             "\nEL uS:%10zu|EL S:%8.2f|FI:%5zu|TFI:%5zu|abs(TFI - FI):%2zu|uSPF:%8d|Cur uSPF:%8zu|Avg uSPF:%8zu|FPS:%8Lf\n",
+             "\nEL uS:%10zu|EL S:%8.2f|FI:%5zu|TFI:%5zu|abs(TFI - FI):%2zu|"
+             "uSPF:%8d|Cur uSPF:%8zu|Avg uSPF:%8zu|FPS:%8Lf|t_size:%2dx%2d\n",
              debug_info->uS_elapsed,
              (double) debug_info->uS_elapsed / N_uSECONDS_IN_ONE_SEC,
              debug_info->frame_index,
@@ -93,7 +112,9 @@ void debug(const sync_info_t *debug_info,
              N_uSECONDS_IN_ONE_SEC / VIDEO_FRAMERATE,
              debug_info->cur_frame_processing_time,
              uS_per_frame,
-             debug_info->frame_index / ((long double) debug_info->uS_elapsed / N_uSECONDS_IN_ONE_SEC)
+             debug_info->frame_index / ((long double) debug_info->uS_elapsed / N_uSECONDS_IN_ONE_SEC),
+             n_cols,
+             n_rows
              );
     display_method(command_buffer, 0, 0, 0);
     fprintf(logs, "%s\n", command_buffer);

@@ -12,6 +12,8 @@ typedef struct {
 
 typedef struct {
     int color_flag;
+    int preserve_aspect_flag;
+    int left_border_indent;
     int max_width;
     int max_height;
 } terminal_params_t;

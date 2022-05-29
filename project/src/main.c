@@ -70,6 +70,7 @@ int main(int argc, char *argv[]) {
         return FOPEN_ERROR;
     }
 
+    frame_data.aspect_ratio = frame_data.width / frame_data.height;
     frame_data.triple_width = frame_data.width * 3;
     int TOTAL_READ_SIZE = frame_data.triple_width * frame_data.height;
     frame_data.video_frame = malloc(sizeof(unsigned char) * TOTAL_READ_SIZE);
@@ -90,7 +91,6 @@ int main(int argc, char *argv[]) {
     kernel_params_t kernel_data;
     kernel_data.kernel = NULL;
     kernel_data.update_kernel = user_params.frame_processing_params.update_kernel;
-    int left_border_indent;
 
     initscr();
     curs_set(0);
@@ -112,17 +112,15 @@ int main(int argc, char *argv[]) {
             usleep(sleep_time);
             continue;
         }
-        ++frame_sync_info.frame_index;  // current_frame_index is incremented because of fread()
+        ++frame_sync_info.frame_index;
 
-        // ASCII frame preparation
-        // draw_frame(&frame_data, user_params.charset_params.char_set, user_params.charset_params.last_index,
-        //            user_params.frame_processing_params.rgb_channels_processor);
-        if ((return_status = update_terminal_size(&frame_data, &kernel_data,
-                                                  user_params.terminal_params, &left_border_indent)))
-            goto free_memory;
+        if ((return_status = update_terminal_size(&frame_data, &kernel_data, &user_params.terminal_params)))
+            break;
 
-        draw_frame(&frame_data, &kernel_data, user_params.charset_params, left_border_indent,
-                   user_params.frame_processing_params.rgb_channels_processor, symbol_display_method);
+        draw_frame(&frame_data, &kernel_data, user_params.charset_params,
+                   user_params.terminal_params.left_border_indent,
+                   user_params.frame_processing_params.rgb_channels_processor,
+                   symbol_display_method);
         debug(&frame_sync_info, logs, symbol_display_method);
         // ASCII frame drawing
         refresh();
