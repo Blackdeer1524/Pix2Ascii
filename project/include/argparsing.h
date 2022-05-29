@@ -8,17 +8,30 @@ typedef enum {SOURCE_FILE, SOURCE_CAMERA} source_t;
 typedef struct {
     char *char_set;
     unsigned int last_index;
-} charset_data_t;
+} charset_params_t;
 
 typedef struct {
-    source_t reading_type;
-    char *file_path;
-    charset_data_t charset_data;
-    region_intensity_t pixel_block_processing_method;
-    int color_flag;
-    int n_stream_loops;
-    char *player_flag;
-    kernel_update_method kernel_update;
+    charset_params_t charset_params;
+
+    struct {
+        source_t reading_type;
+        char *file_path;
+        int n_stream_loops;
+        char *player_flag;
+    } ffmpeg_params;
+
+    struct {
+        region_intensity_t rgb_channels_processor;
+        kernel_update_method update_kernel;
+    } frame_processing_params;
+
+    struct {
+        int color_flag;
+        int max_width;
+        int min_width;
+        int max_height;
+        int min_height;
+    } terminal_params;
 } user_params_t;
 
 int argparse(user_params_t *user_params, int argc, char *argv[]);

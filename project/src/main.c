@@ -36,20 +36,22 @@ int main(int argc, char *argv[]) {
 
     frame_data.width = 1280;
     frame_data.height = 720;
-    if (user_params.reading_type == SOURCE_FILE) {
-        if (!(pipein = get_file_stream(user_params.file_path, user_params.n_stream_loops))) {
+    if (user_params.ffmpeg_params.reading_type == SOURCE_FILE) {
+        if (!(pipein = get_file_stream(user_params.ffmpeg_params.file_path, user_params.ffmpeg_params.n_stream_loops))) {
             // ...
             return POPEN_ERROR;
         }
-        if ((return_status = get_frame_data(user_params.file_path, &frame_data.width, &frame_data.height))) {
+        if ((return_status = get_frame_data(user_params.ffmpeg_params.file_path, &frame_data.width, &frame_data.height))) {
             // ...
             return return_status;
         }
-        if ((return_status = start_player(user_params.file_path, user_params.n_stream_loops + 1, user_params.player_flag))) {
+        if ((return_status = start_player(user_params.ffmpeg_params.file_path,
+                                          user_params.ffmpeg_params.n_stream_loops + 1,
+                                          user_params.ffmpeg_params.player_flag))) {
             // ...
             return return_status;
         }
-    } else if (user_params.reading_type == SOURCE_CAMERA) {
+    } else if (user_params.ffmpeg_params.reading_type == SOURCE_CAMERA) {
         if (!(pipein = get_camera_stream(frame_data.width, frame_data.height))) {
             // ...
             return POPEN_ERROR;
@@ -87,13 +89,13 @@ int main(int argc, char *argv[]) {
 
     kernel_params_t kernel_data;
     kernel_data.kernel = NULL;
-    kernel_data.kernel_update = user_params.kernel_update;
+    kernel_data.update_kernel = user_params.frame_processing_params.update_kernel;
     int left_border_indent;
 
     initscr();
     curs_set(0);
     display_method_t symbol_display_method;
-    if (user_params.color_flag) {
+    if (user_params.terminal_params.color_flag) {
         start_color();
         set_color_pairs();
         symbol_display_method = colored_display;
@@ -113,14 +115,14 @@ int main(int argc, char *argv[]) {
         ++frame_sync_info.frame_index;  // current_frame_index is incremented because of fread()
 
         // ASCII frame preparation
-        // draw_frame(&frame_data, user_params.charset_data.char_set, user_params.charset_data.last_index,
-        //            user_params.pixel_block_processing_method);
+        // draw_frame(&frame_data, user_params.charset_params.char_set, user_params.charset_params.last_index,
+        //            user_params.frame_processing_params.rgb_channels_processor);
         if ((return_status = update_terminal_size(&frame_data, &kernel_data, &left_border_indent)))
             goto free_memory;
 
         draw_frame(&frame_data, &kernel_data, left_border_indent,
-                   user_params.charset_data.char_set, user_params.charset_data.last_index,
-                   user_params.pixel_block_processing_method, symbol_display_method);
+                   user_params.charset_params.char_set, user_params.charset_params.last_index,
+                   user_params.frame_processing_params.rgb_channels_processor, symbol_display_method);
         debug(&frame_sync_info, logs, symbol_display_method);
         // ASCII frame drawing
         refresh();
@@ -137,7 +139,7 @@ int main(int argc, char *argv[]) {
                 ? frame_sync_info.time_frame_index - frame_sync_info.frame_index
                 : frame_sync_info.frame_index - frame_sync_info.time_frame_index;
 
-        if (user_params.reading_type == SOURCE_FILE && frame_sync_info.time_frame_index > frame_sync_info.frame_index) {
+        if (user_params.ffmpeg_params.reading_type == SOURCE_FILE && frame_sync_info.time_frame_index > frame_sync_info.frame_index) {
             for (size_t i=0; i<frame_sync_info.frame_desync; ++i)
                 fread(frame_data.video_frame, sizeof(char), TOTAL_READ_SIZE, pipein);
             frame_sync_info.frame_index = frame_sync_info.time_frame_index;

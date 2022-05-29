@@ -21,7 +21,7 @@ typedef struct {
     int width;
     int height;
     int volume;  // cached for region_intensity_t: width * height * 3
-    kernel_update_method kernel_update;
+    kernel_update_method update_kernel;
 } kernel_params_t;
 
 void convolve(const frame_params_t *frame_params,
