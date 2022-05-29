@@ -19,11 +19,11 @@ void update_terminal_size(frame_params_t *frame_params,
 
 void set_color_pairs();
 
-typedef void (*display_symbol_t)(char symbol, unsigned char r, unsigned char g, unsigned char b);
+typedef void (*display_method_t)(const char *symbol, unsigned char r, unsigned char g, unsigned char b);
 
-void simple_display(char symbol, unsigned char r, unsigned char g, unsigned char b);
+void simple_display(const char *symbol, unsigned char r, unsigned char g, unsigned char b);
 
-void colored_display(char symbol, unsigned char r, unsigned char g, unsigned char b);
+void colored_display(const char *symbol, unsigned char r, unsigned char g, unsigned char b);
 
 void draw_frame(const frame_params_t *frame_params,
                 const kernel_params_t *kernel_params,
@@ -31,8 +31,8 @@ void draw_frame(const frame_params_t *frame_params,
                 const char char_set[],
                 unsigned int max_char_set_index,
                 region_intensity_t get_region_intensity,
-                display_symbol_t display_symbol);
+                display_method_t display_symbol);
 
-void debug(const sync_info_t *debug_info, FILE *logs);
+void debug(const sync_info_t *debug_info, FILE *logs, display_method_t display_method);
 
 #endif //PIX2ASCII_TERMSTREAM_H

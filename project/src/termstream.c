@@ -59,7 +59,8 @@ static char command_buffer[COMMAND_BUFFER_SIZE];
 #include "videostream.h"
 
 void debug(const sync_info_t *debug_info,
-           FILE *logs) {
+           FILE *logs,
+           display_method_t display_method) {
     // =============================================
     // debug info about PREVIOUS frame
     // EL uS    - elapsed time (in microseconds) from the start;
@@ -74,7 +75,7 @@ void debug(const sync_info_t *debug_info,
             (debug_info->uS_elapsed % debug_info->frame_index != 0);
     // "EL uS:%10llu|EL S:%8.2f|FI:%5llu|TFI:%5llu|TFI - FI:%2d|uSPF:%8llu|Cur uSPF:%8llu|Avg uSPF:%8llu|FPS:%8f"
     snprintf(command_buffer, COMMAND_BUFFER_SIZE,
-             "EL uS:%10zu|EL S:%8.2f|FI:%5zu|TFI:%5zu|abs(TFI - FI):%2zu|uSPF:%8d|Cur uSPF:%8zu|Avg uSPF:%8zu|FPS:%8Lf",
+             "\nEL uS:%10zu|EL S:%8.2f|FI:%5zu|TFI:%5zu|abs(TFI - FI):%2zu|uSPF:%8d|Cur uSPF:%8zu|Avg uSPF:%8zu|FPS:%8Lf\n",
              debug_info->uS_elapsed,
              (double) debug_info->uS_elapsed / N_uSECONDS_IN_ONE_SEC,
              debug_info->frame_index,
@@ -85,7 +86,7 @@ void debug(const sync_info_t *debug_info,
              uS_per_frame,
              debug_info->frame_index / ((long double) debug_info->uS_elapsed / N_uSECONDS_IN_ONE_SEC)
              );
-    printw("\n%s\n", command_buffer);
+    display_method(command_buffer, 0, 0, 0);
     fprintf(logs, "%s\n", command_buffer);
 }
 
@@ -111,14 +112,13 @@ static int get_color_index(unsigned char r, unsigned char g, unsigned char b) {
     b / DEPTH_6_CONVERT_DIV + 1;
 }
 
-void simple_display(char symbol, unsigned char r, unsigned char g, unsigned char b) {
-    addch(symbol);
+void simple_display(const char *symbol, unsigned char r, unsigned char g, unsigned char b) {
+    printw(symbol);
 }
 
-void colored_display(char symbol, unsigned char r, unsigned char g, unsigned char b) {
-    int pair = COLOR_PAIR(get_color_index(r, g, b));
-    attron(pair);
-    addch(symbol);
+void colored_display(const char *symbol, unsigned char r, unsigned char g, unsigned char b) {
+    attron(COLOR_PAIR(get_color_index(r, g, b)));
+    printw(symbol);
 }
 
 void draw_frame(const frame_params_t *frame_params,
@@ -127,9 +127,9 @@ void draw_frame(const frame_params_t *frame_params,
                 const char char_set[],
                 unsigned int max_char_set_index,
                 region_intensity_t get_region_intensity,
-                display_symbol_t display_symbol) {
+                display_method_t display_method) {
     double r, g, b;
-    char displaying_symbol;
+    static char displaying_symbol[2];
 
     for (int cur_char_row=0, cur_pixel_row=0;
          cur_pixel_row < frame_params->trimmed_height;
@@ -139,8 +139,8 @@ void draw_frame(const frame_params_t *frame_params,
              cur_pixel_col < frame_params->trimmed_width;
              cur_pixel_col += kernel_params->height) {
             convolve(frame_params, kernel_params, cur_pixel_row, cur_pixel_col, &r, &g, &b);
-            displaying_symbol = get_char_given_intensity(get_region_intensity(r, g, b), char_set, max_char_set_index);
-            display_symbol(displaying_symbol, (unsigned char) r, (unsigned char) g, (unsigned char) b);
+            displaying_symbol[0] = get_char_given_intensity(get_region_intensity(r, g, b), char_set, max_char_set_index);
+            display_method(displaying_symbol, (unsigned char) r, (unsigned char) g, (unsigned char) b);
         }
     }
 }
