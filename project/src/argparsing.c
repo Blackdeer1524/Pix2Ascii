@@ -9,11 +9,11 @@
 #include "status_codes.h"
 
 
-typedef enum {CHARSET_SHARP, CHARSET_OPTIMAL, CHARSET_STANDART, CHARSET_LONG, CHARSET_N} t_char_set;
+typedef enum {CHARSET_SHARP, CHARSET_OPTIMAL, CHARSET_STANDARD, CHARSET_LONG, CHARSET_N} t_char_set;
 static charset_params_t charsets[CHARSET_N] = {
         {"@%#*+=-:. ", 9},
         {"NBUa1|^` ", 8},
-        {"N@#W$9876543210?!abc;:+=-,._ ", 28},
+        {"N@#W$9876543210?!abc;:+=-,._", 28},
         {"$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. ", 69}
 };
 
@@ -72,7 +72,7 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
             } else if (!strcmp(argv[i + 1], "optimal")) {
                 user_params->charset_params = charsets[CHARSET_OPTIMAL];
             } else if (!strcmp(argv[i + 1], "standard")) {
-                user_params->charset_params = charsets[CHARSET_STANDART];
+                user_params->charset_params = charsets[CHARSET_STANDARD];
             } else if (!strcmp(argv[i + 1], "long")) {
                 user_params->charset_params = charsets[CHARSET_LONG];
             } else {
