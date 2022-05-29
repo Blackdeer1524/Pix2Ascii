@@ -104,18 +104,18 @@ void set_color_pairs() {
     init_pair(TEXT_COLOR_PAIR, WHITE_COLOR, BLACK_COLOR);
 }
 
-static int get_color_index(unsigned int r, unsigned int g, unsigned int b) {
+static int get_color_index(unsigned char r, unsigned char g, unsigned char b) {
     // Keep multipliers in origin order!
     return r / DEPTH_6_CONVERT_DIV * RED_MULTIPLIER +
     g / DEPTH_7_CONVERT_DIV * GREEN_MULTIPLIER +
     b / DEPTH_6_CONVERT_DIV + 1;
 }
 
-void simple_display(char symbol, unsigned int r, unsigned int g, unsigned int b) {
+void simple_display(char symbol, unsigned char r, unsigned char g, unsigned char b) {
     addch(symbol);
 }
 
-void colored_display(char symbol, unsigned int r, unsigned int g, unsigned int b) {
+void colored_display(char symbol, unsigned char r, unsigned char g, unsigned char b) {
     int pair = COLOR_PAIR(get_color_index(r, g, b));
     attron(pair);
     addch(symbol);
@@ -140,7 +140,7 @@ void draw_frame(const frame_params_t *frame_params,
              cur_pixel_col += kernel_params->height) {
             convolve(frame_params, kernel_params, cur_pixel_row, cur_pixel_col, &r, &g, &b);
             displaying_symbol = get_char_given_intensity(get_region_intensity(r, g, b), char_set, max_char_set_index);
-            display_symbol(displaying_symbol, (unsigned int) r, (unsigned int) g, (unsigned int) b);
+            display_symbol(displaying_symbol, (unsigned char) r, (unsigned char) g, (unsigned char) b);
         }
     }
 }
