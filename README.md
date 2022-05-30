@@ -9,10 +9,19 @@ Simple Image to Ascii graphics converter written in C
  * **-f "file path"**: read from video/image file
  * **-c**: read from camera
 ### Optional flags
+ * **-h**: get help
  * **-method [average | yuv]**: RGB2Grayscale conversion method. **average** by deault 
  * **-set [sharp | long | optimal | standard]**: defines character set. **optimal** by default
- * **-color**: colorization flag. **turned off** by default
+ * **-method [average | yuv]**: RGB channels combining method. **average** by default.
  * **-nl**: number of video loops to create (-1 for infinite loop). **0** by default
+ * **-player [0 - off; 1 - only video; 2 - only audio; 3 - video and audio]**. Start ffplay simultaneously with the program (mainly for debug purposes). **off** by default.
+ * **-filter [naive | gauss]**. Convolution filter type. **naive** by default
+   * **naive**: simple pixel average
+   * **gauss**: gaussian convolution filter
+ * **-maxw**: sets maximum produced **width**
+ * **-maxh**: sets maximum produced **height**
+ * **--color**: terminal colorization flag. **turned off** by default
+ * **--keep-aspect**: Enable aspect ratio. **turned off** by default
 
 ## Requirements
  * **FFmpeg**

@@ -169,9 +169,9 @@ int argparse(user_params_t *user_params, int argc, char *argv[]) {
                     "-nl : loop video; -1 for infinite loop\n"
                     "-player [0 - off; 1 - only video; 2 - only audio; 3 - video and audio]\n"
                     "-filter [naive | gauss]\n"
-                    "-maxw: set max produced width\n"
+                    "-maxw: sets maximum produced width\n"
                     "-maxh: set max produced height\n"
-                    "--color : colorize terminal\n"
+                    "--color : terminal colorization flag\n"
                     "--keep-aspect: Enable aspect ratio");
             return HELP_FLAG;
         } else {
