@@ -4,6 +4,7 @@
 
 #include "frame_processing.h"
 #include "status_codes.h"
+#include "utils.h"
 
 int update_naive(double **kernel, int width, int height) {
     double *new_kernel = realloc(*kernel, sizeof(double) * width * height);
@@ -27,7 +28,7 @@ int update_gaussian(double **kernel, int width, int height) {
         fprintf(stderr, "Couldn't update kernel size!");
         return KERNEL_UPDATE_ERROR;
     }
-    double sigma = width / 3;
+    double sigma = MAX(width / 3.0, height / 3.0);
     const double double_sqr_sigma = 2 * sigma * sigma;
 
     double sum = 0.0;
