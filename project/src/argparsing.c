@@ -21,25 +21,15 @@ typedef enum {PLAYER_OFF, PLAYER_VIDEO, PLAYER_AUDIO, PLAYER_ALL, PLAYER_COUNT} 
 static char *player_flags[PLAYER_COUNT] = {NULL, "-an", "-nodisp", ""};
 
 int argparse(user_params_t *user_params, int argc, char *argv[]) {
-//    if (argc == 1) {
-//        fprintf(stderr, "Bad number of arguments!\n");
-//        return ARG_COUNT_ERROR;
-//    }
-    // flags:
-    // -f <Media path>
-    // -c : (camera support)
-    // -set [sharp | optimal | standard | long] : ascii set
-    // -method [average | yuv] : grayscale conversion methods
-    // --color : enable color support
-    // -nl : loop video; -1 for infinite loop
-    // -player [0 - off; 1 - only video; 2 - only audio; 3 - video and audio]
-    // -filter [naive | gauss]
+    if (argc == 1) {
+        fprintf(stderr, "Bad number of arguments!\n");
+        return ARG_COUNT_ERROR;
+    }
     user_params->charset_params = charsets[CHARSET_OPTIMAL];
     user_params->ffmpeg_params.n_stream_loops = 0;
-    user_params->ffmpeg_params.player_flag = "-nodisp";
-    user_params->ffmpeg_params.file_path = "./ricardo.mp4";
+    user_params->ffmpeg_params.player_flag = NULL;
     user_params->frame_processing_params.rgb_channels_processor = average_chanel_intensity;
-    user_params->frame_processing_params.update_kernel = update_gaussian;
+    user_params->frame_processing_params.update_kernel = update_naive;
     user_params->terminal_params.color_flag = 0;
     user_params->terminal_params.max_width = INT_MAX;
     user_params->terminal_params.max_height = INT_MAX;
