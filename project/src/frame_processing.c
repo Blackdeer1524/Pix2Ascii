@@ -27,7 +27,7 @@ int update_gaussian(double **kernel, int width, int height) {
         fprintf(stderr, "Couldn't update kernel size!");
         return KERNEL_UPDATE_ERROR;
     }
-    double sigma = 1;
+    double sigma = width / 3;
     const double double_sqr_sigma = 2 * sigma * sigma;
 
     double sum = 0.0;
