@@ -92,41 +92,59 @@ int start_player(char *file_path, int n_stream_loops, char *player_type) {
         return SUCCESS;
 
     FILE *ffplay_log_file = NULL;
-    FILE *tmp = NULL;
-
-    snprintf(command_buffer, COMMAND_BUFFER_SIZE,
-             "FFREPORT=file=StartIndicator:level=32 "
-             "ffplay %s -loop %d %s -hide_banner -loglevel error -nostats -vf showinfo -framedrop ",
-             player_type, n_stream_loops, file_path);
-    
-    if (!(tmp = popen(command_buffer, "r"))) {
-        fprintf(stderr, "Couldn't start player!");
-        return POPEN_ERROR;
-    }
-
     if (!(ffplay_log_file = fopen("StartIndicator", "w+"))) {
         fprintf(stderr, "Couldn't open StartIndicator!");
         return FOPEN_ERROR;
     }
 
-    int brackets_count = 0;
-    while (brackets_count < 3) {
-        int current_symbol;
-        if ((current_symbol = getc(ffplay_log_file)) == EOF) {
-            size_t current_file_position = ftell(ffplay_log_file) - 1;
-
-            fclose(ffplay_log_file);
-            if (!(ffplay_log_file = fopen("StartIndicator", "r"))) {
-                fprintf(stderr, "Couldn't reopen StartIndicator!");
-                return FOPEN_ERROR;
-            }
-
-            fseek(ffplay_log_file, current_file_position, SEEK_SET);
-        } else if (current_symbol == '[') {
-            ++brackets_count;
-        }
+    int fd[2];
+    if (pipe(fd)) {
+        fprintf(stderr, "[start_player] Couldn't create a pipe between processes!");
+        return POPEN_ERROR;
     }
-    fclose(ffplay_log_file);
 
+    pid_t id;
+    int status = SUCCESS;
+    if (!(id = fork())) {
+        close(fd[0]);
+        snprintf(command_buffer, COMMAND_BUFFER_SIZE,
+                 "FFREPORT=file=StartIndicator:level=32 "
+                 "ffplay %s -loop %d %s -hide_banner -loglevel error -nostats -vf showinfo -framedrop ",
+                 player_type, n_stream_loops, file_path);
+        FILE *tmp = NULL;
+        if (!(tmp = popen(command_buffer, "r"))) {
+            fprintf(stderr, "Couldn't start player!");
+            status = POPEN_ERROR;
+        }
+        write(fd[1], &status, sizeof(int));
+        close(fd[0]);
+        pclose(tmp);
+        return status;
+    } else {
+        close(fd[1]);
+        waitpid(id, NULL, 0);
+        read(fd[0], &status, sizeof(int));
+        if (status)
+            return status;
+
+        int brackets_count = 0;
+        while (brackets_count < 3) {
+            int current_symbol;
+            if ((current_symbol = getc(ffplay_log_file)) == EOF) {
+                size_t current_file_position = ftell(ffplay_log_file) - 1;
+
+                fclose(ffplay_log_file);
+                if (!(ffplay_log_file = fopen("StartIndicator", "r"))) {
+                    fprintf(stderr, "Couldn't reopen StartIndicator!");
+                    return FOPEN_ERROR;
+                }
+
+                fseek(ffplay_log_file, current_file_position, SEEK_SET);
+            } else if (current_symbol == '[') {
+                ++brackets_count;
+            }
+        }
+        fclose(ffplay_log_file);
+    }
     return SUCCESS;
 }
