@@ -4,8 +4,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
-#include <sys/wait.h>
+#include <string.h>
 
 #include "videostream.h"
 #include "status_codes.h"
@@ -103,9 +102,8 @@ int start_player(char *file_path, int n_stream_loops, char *player_type) {
         return POPEN_ERROR;
     }
 
-    pid_t id;
     int status = SUCCESS;
-    if (!(id = fork())) {
+    if (!fork()) {
         close(fd[0]);
         snprintf(command_buffer, COMMAND_BUFFER_SIZE,
                  "FFREPORT=file=StartIndicator:level=32 "
@@ -121,6 +119,9 @@ int start_player(char *file_path, int n_stream_loops, char *player_type) {
         pclose(tmp);
         exit(status);
     }
+    if (!strcmp(player_type, "-nodisp"))
+        return SUCCESS;
+
     close(fd[1]);
     read(fd[0], &status, sizeof(int));
     if (status)
